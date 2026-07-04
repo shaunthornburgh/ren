@@ -1,10 +1,14 @@
 import enum
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.event import Event
 
 
 class UserRole(str, enum.Enum):
@@ -38,4 +42,9 @@ class User(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+
+    events: Mapped[list["Event"]] = relationship(
+        back_populates="organizer",
+        cascade="all, delete-orphan",
     )

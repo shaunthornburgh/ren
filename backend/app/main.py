@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import models  # noqa: F401 — register models on Base.metadata
-from app.api.v1 import auth
+from app.api.v1 import auth, events
 from app.core.config import settings
 from app.core.database import Base, engine
 
@@ -47,3 +47,4 @@ async def health():
 
 # API v1 routers
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
+app.include_router(events.router, prefix=settings.API_V1_PREFIX)
