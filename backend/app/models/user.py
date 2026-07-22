@@ -9,6 +9,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.event import Event
+    from app.models.order import Order
     from app.models.ticket import Ticket
 
 
@@ -51,5 +52,9 @@ class User(Base):
     )
     tickets: Mapped[list["Ticket"]] = relationship(
         back_populates="owner",
+        cascade="all, delete-orphan",
+    )
+    orders: Mapped[list["Order"]] = relationship(
+        back_populates="user",
         cascade="all, delete-orphan",
     )

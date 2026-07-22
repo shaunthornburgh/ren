@@ -14,5 +14,6 @@ class TicketRead(BaseModel):
     status: TicketStatus
     ticket_type_id: int
     owner_id: int
+    order_id: int
     created_at: datetime
     updated_at: datetime

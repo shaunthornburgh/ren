@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 if TYPE_CHECKING:
+    from app.models.order import Order
     from app.models.ticket_type import TicketType
     from app.models.user import User
 
@@ -21,12 +22,7 @@ class TicketStatus(str, enum.Enum):
 
 
 class Ticket(Base):
-    """A single ticket owned by a user.
-
-    An `Order` model does not exist yet; for the basic purchase flow a ticket
-    is linked directly to its owner. An `order_id` FK can be added later
-    without breaking this relationship.
-    """
+    """A single ticket owned by a user, issued as part of an order."""
 
     __tablename__ = "tickets"
 
@@ -50,6 +46,13 @@ class Ticket(Base):
         nullable=False,
     )
     owner: Mapped["User"] = relationship(back_populates="tickets")
+
+    order_id: Mapped[int] = mapped_column(
+        ForeignKey("orders.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    order: Mapped["Order"] = relationship(back_populates="tickets")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
