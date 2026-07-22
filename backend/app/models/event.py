@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     DateTime,
@@ -13,6 +14,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.ticket_type import TicketType
+    from app.models.user import User
 
 
 class EventStatus(str, enum.Enum):
@@ -49,7 +54,12 @@ class Event(Base):
         index=True,
         nullable=False,
     )
-    organizer: Mapped["User"] = relationship(back_populates="events")  # noqa: F821
+    organizer: Mapped["User"] = relationship(back_populates="events")
+
+    ticket_types: Mapped[list["TicketType"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

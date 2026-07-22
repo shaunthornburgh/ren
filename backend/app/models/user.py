@@ -9,6 +9,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.event import Event
+    from app.models.ticket import Ticket
 
 
 class UserRole(str, enum.Enum):
@@ -46,5 +47,9 @@ class User(Base):
 
     events: Mapped[list["Event"]] = relationship(
         back_populates="organizer",
+        cascade="all, delete-orphan",
+    )
+    tickets: Mapped[list["Ticket"]] = relationship(
+        back_populates="owner",
         cascade="all, delete-orphan",
     )
