@@ -20,8 +20,23 @@ class OrderCreate(BaseModel):
     items: list[OrderItemCreate] = Field(min_length=1)
 
 
+class OrderItemRead(BaseModel):
+    """A purchased line on an order (issued tickets follow once paid)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ticket_type_id: int
+    quantity: int
+    unit_price: Decimal
+
+
 class OrderRead(BaseModel):
-    """Order representation returned to clients, including issued tickets."""
+    """Order representation returned to clients.
+
+    ``tickets`` is empty until payment succeeds; ``items`` always reflects what
+    was ordered.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -29,6 +44,14 @@ class OrderRead(BaseModel):
     status: OrderStatus
     total_amount: Decimal
     user_id: int
+    items: list[OrderItemRead] = []
     tickets: list[TicketRead]
     created_at: datetime
     updated_at: datetime
+
+
+class CheckoutSessionRead(BaseModel):
+    """Stripe Checkout Session details the client redirects the buyer to."""
+
+    checkout_url: str
+    session_id: str

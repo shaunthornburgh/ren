@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Local environment / secrets (Stripe keys, etc.)
+.env

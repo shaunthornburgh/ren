@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import models  # noqa: F401 — register models on Base.metadata
-from app.api.v1 import auth, events, orders, tickets
+from app.api.v1 import auth, events, orders, payments, tickets
 from app.core.config import settings
 from app.core.database import Base, engine
 
@@ -50,3 +50,4 @@ app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(events.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tickets.router, prefix=settings.API_V1_PREFIX)
 app.include_router(orders.router, prefix=settings.API_V1_PREFIX)
+app.include_router(payments.router, prefix=settings.API_V1_PREFIX)

@@ -27,7 +27,11 @@ def create_order(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> Order:
-    """Purchase tickets: reserve inventory and issue tickets atomically."""
+    """Start a purchase: reserve inventory and create a PENDING order.
+
+    Tickets are issued only once payment succeeds. Follow up with
+    ``POST /payments/orders/{order_id}/checkout-session`` to pay.
+    """
     try:
         return crud.order.create(db, obj_in=order_in, user_id=current_user.id)
     except TicketTypeNotFoundError as exc:

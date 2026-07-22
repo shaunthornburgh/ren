@@ -34,6 +34,18 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of allowed origins
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
+    # Frontend base URL — used to build Stripe success/cancel redirect URLs.
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Stripe (test-mode keys for now). Loaded from the environment; never
+    # commit real keys. STRIPE_WEBHOOK_SECRET is the signing secret shown when
+    # you register the webhook endpoint (or run `stripe listen` locally).
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    # ISO 4217 currency for Checkout line items (lowercase, e.g. "usd", "gbp").
+    STRIPE_CURRENCY: str = "usd"
+
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: str | list[str]) -> list[str]:
