@@ -79,6 +79,37 @@ export interface CheckoutSessionRead {
   session_id: string
 }
 
+// Event + aggregate stats, returned by GET /events/me for the dashboard.
+export interface OrganizerEventRead extends EventRead {
+  ticket_types_count: number
+  tickets_sold: number
+  tickets_remaining: number
+  revenue: string
+}
+
+// Payloads for creating/updating events (organizer dashboard).
+export interface EventCreate {
+  title: string
+  description?: string | null
+  start_datetime: string
+  end_datetime: string
+  location?: string | null
+  image_url?: string | null
+  capacity?: number | null
+  status?: EventStatus
+}
+export type EventUpdate = Partial<EventCreate>
+
+// Payloads for creating/updating ticket types.
+export interface TicketTypeCreate {
+  name: string
+  description?: string | null
+  price: string
+  quantity_available: number
+  max_per_order?: number
+}
+export type TicketTypeUpdate = Partial<TicketTypeCreate>
+
 // A single line in a purchase request.
 export interface OrderItemCreate {
   ticket_type_id: number

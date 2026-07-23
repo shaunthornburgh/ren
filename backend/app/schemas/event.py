@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -50,3 +51,12 @@ class EventRead(EventBase):
     organizer_id: int
     created_at: datetime
     updated_at: datetime
+
+
+class OrganizerEventRead(EventRead):
+    """Event plus aggregate sales stats, for the organizer dashboard."""
+
+    ticket_types_count: int
+    tickets_sold: int
+    tickets_remaining: int
+    revenue: Decimal

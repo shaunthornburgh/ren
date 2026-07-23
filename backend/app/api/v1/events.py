@@ -7,7 +7,12 @@ from app import crud
 from app.deps import get_current_active_user, get_db, require_role
 from app.models.event import Event, EventStatus
 from app.models.user import User, UserRole
-from app.schemas.event import EventCreate, EventRead, EventUpdate
+from app.schemas.event import (
+    EventCreate,
+    EventRead,
+    EventUpdate,
+    OrganizerEventRead,
+)
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -60,6 +65,26 @@ def list_events(
             db, skip=skip, limit=limit, status=EventStatus.PUBLISHED
         )
     )
+
+
+@router.get("/me", response_model=list[OrganizerEventRead])
+def list_my_events(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[
+        User, Depends(require_role(UserRole.ORGANIZER, UserRole.ADMIN))
+    ],
+) -> list[OrganizerEventRead]:
+    """List the caller's own events with sales stats. Organizers/admins only.
+
+    Declared before ``/{event_id}`` so the literal ``/me`` path wins.
+    """
+    rows = crud.event.get_multi_by_organizer_with_stats(
+        db, organizer_id=current_user.id
+    )
+    return [
+        OrganizerEventRead(**EventRead.model_validate(event).model_dump(), **stats)
+        for event, stats in rows
+    ]
 
 
 @router.get("/{event_id}", response_model=EventRead)

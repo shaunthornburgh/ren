@@ -1,10 +1,20 @@
 from collections.abc import Sequence
+from decimal import Decimal
+from typing import TypedDict
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.event import Event, EventStatus
+from app.models.ticket import Ticket, TicketStatus
 from app.schemas.event import EventCreate, EventUpdate
+
+
+class EventStats(TypedDict):
+    ticket_types_count: int
+    tickets_sold: int
+    tickets_remaining: int
+    revenue: Decimal
 
 
 def get(db: Session, *, id: int) -> Event | None:
@@ -28,6 +38,57 @@ def get_multi(
         stmt = stmt.where(Event.organizer_id == organizer_id)
     stmt = stmt.order_by(Event.start_datetime).offset(skip).limit(limit)
     return db.scalars(stmt).all()
+
+
+def get_multi_by_organizer_with_stats(
+    db: Session, *, organizer_id: int
+) -> list[tuple[Event, EventStats]]:
+    """List an organizer's events (newest first) with aggregate sales stats.
+
+    ``tickets_sold`` / ``revenue`` count issued (non-cancelled) tickets — which
+    only exist once an order is paid. ``tickets_remaining`` is the inventory
+    still available across the event's ticket types.
+    """
+    events = db.scalars(
+        select(Event)
+        .where(Event.organizer_id == organizer_id)
+        .options(selectinload(Event.ticket_types))
+        .order_by(Event.start_datetime.desc())
+    ).all()
+
+    type_ids = [tt.id for e in events for tt in e.ticket_types]
+    sold_by_type: dict[int, int] = {}
+    if type_ids:
+        rows = db.execute(
+            select(Ticket.ticket_type_id, func.count(Ticket.id))
+            .where(
+                Ticket.ticket_type_id.in_(type_ids),
+                Ticket.status != TicketStatus.CANCELLED,
+            )
+            .group_by(Ticket.ticket_type_id)
+        ).all()
+        sold_by_type = {type_id: count for type_id, count in rows}
+
+    results: list[tuple[Event, EventStats]] = []
+    for event in events:
+        sold = sum(sold_by_type.get(tt.id, 0) for tt in event.ticket_types)
+        remaining = sum(tt.quantity_available for tt in event.ticket_types)
+        revenue = sum(
+            (sold_by_type.get(tt.id, 0) * tt.price for tt in event.ticket_types),
+            Decimal(0),
+        )
+        results.append(
+            (
+                event,
+                EventStats(
+                    ticket_types_count=len(event.ticket_types),
+                    tickets_sold=sold,
+                    tickets_remaining=remaining,
+                    revenue=revenue,
+                ),
+            )
+        )
+    return results
 
 
 def create(db: Session, *, obj_in: EventCreate, organizer_id: int) -> Event:

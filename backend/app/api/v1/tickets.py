@@ -8,7 +8,11 @@ from app.deps import get_db, require_role
 from app.models.event import Event
 from app.models.ticket_type import TicketType
 from app.models.user import User, UserRole
-from app.schemas.ticket_type import TicketTypeCreate, TicketTypeRead
+from app.schemas.ticket_type import (
+    TicketTypeCreate,
+    TicketTypeRead,
+    TicketTypeUpdate,
+)
 
 router = APIRouter(prefix="/events", tags=["ticket-types"])
 
@@ -69,3 +73,29 @@ def create_ticket_type(
     """Create a ticket type for an event. Event owner (or admin) only."""
     _get_owned_event(event_id, db, current_user)
     return crud.ticket_type.create(db, obj_in=ticket_type_in, event_id=event_id)
+
+
+@router.put(
+    "/{event_id}/ticket-types/{ticket_type_id}",
+    response_model=TicketTypeRead,
+)
+def update_ticket_type(
+    event_id: int,
+    ticket_type_id: int,
+    ticket_type_in: TicketTypeUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[
+        User, Depends(require_role(UserRole.ORGANIZER, UserRole.ADMIN))
+    ],
+) -> TicketType:
+    """Update a ticket type. Event owner (or admin) only."""
+    _get_owned_event(event_id, db, current_user)
+    ticket_type = crud.ticket_type.get(db, id=ticket_type_id)
+    if ticket_type is None or ticket_type.event_id != event_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket type not found.",
+        )
+    return crud.ticket_type.update(
+        db, db_obj=ticket_type, obj_in=ticket_type_in
+    )

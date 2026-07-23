@@ -4,11 +4,18 @@ const router = useRouter()
 
 const open = ref(false) // mobile menu
 
-const nav = [
-  { label: 'Home', to: '/' },
-  { label: 'Events', to: '/events' },
-  { label: 'My Tickets', to: '/my-tickets' },
-]
+const nav = computed(() => {
+  const links = [
+    { label: 'Home', to: '/' },
+    { label: 'Events', to: '/events' },
+    { label: 'My Tickets', to: '/my-tickets' },
+  ]
+  const role = user.value?.role
+  if (role === 'organizer' || role === 'admin') {
+    links.push({ label: 'Dashboard', to: '/dashboard' })
+  }
+  return links
+})
 
 function signOut() {
   logout()
