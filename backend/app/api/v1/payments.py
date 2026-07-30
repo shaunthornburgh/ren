@@ -92,8 +92,8 @@ async def stripe_webhook(
             detail="Invalid webhook signature.",
         )
 
-    event_type = event["type"]
-    obj = event["data"]["object"]
+    event_type = event.type
+    obj = event.data.object
     order_id = _order_id_from(obj)
 
     if event_type in (
@@ -103,11 +103,11 @@ async def stripe_webhook(
         # For synchronous methods (cards) the session is already paid; for
         # asynchronous ones wait for async_payment_succeeded. Guard on
         # payment_status so an unpaid "completed" event doesn't fulfil early.
-        if obj.get("payment_status") == "paid" and order_id is not None:
+        if getattr(obj, "payment_status", None) == "paid" and order_id is not None:
             crud.order.fulfill(
                 db,
                 order_id=order_id,
-                payment_intent_id=obj.get("payment_intent"),
+                payment_intent_id=getattr(obj, "payment_intent", None),
             )
     elif event_type in (
         "checkout.session.expired",
@@ -122,10 +122,18 @@ async def stripe_webhook(
     return {"received": True}
 
 
-def _order_id_from(session_obj: dict) -> int | None:
-    """Extract our order id from a Checkout Session's metadata."""
-    metadata = session_obj.get("metadata") or {}
-    raw = metadata.get("order_id") or session_obj.get("client_reference_id")
+def _order_id_from(session_obj: stripe.checkout.Session) -> int | None:
+    """Extract our order id from a Checkout Session's metadata.
+
+    ``session_obj`` is a Stripe ``StripeObject``, so fields are read via
+    attribute access rather than ``dict.get`` (which the SDK object doesn't
+    support). ``metadata`` is itself a ``StripeObject``; ``getattr`` reads the
+    ``order_id`` key off it and falls back to ``client_reference_id``.
+    """
+    metadata = getattr(session_obj, "metadata", None)
+    raw = getattr(metadata, "order_id", None) or getattr(
+        session_obj, "client_reference_id", None
+    )
     if raw is None:
         return None
     try:

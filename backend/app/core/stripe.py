@@ -51,11 +51,13 @@ def create_checkout_session(order: Order) -> stripe.checkout.Session:
         mode="payment",
         line_items=line_items,
         success_url=(
-            f"{settings.FRONTEND_URL}/orders/{order.id}"
-            "?status=success&session_id={CHECKOUT_SESSION_ID}"
+            f"{settings.FRONTEND_URL}/my-tickets"
+            f"?status=success&order_id={order.id}"
+            "&session_id={CHECKOUT_SESSION_ID}"
         ),
         cancel_url=(
-            f"{settings.FRONTEND_URL}/orders/{order.id}?status=cancelled"
+            f"{settings.FRONTEND_URL}/my-tickets"
+            f"?status=cancelled&order_id={order.id}"
         ),
         client_reference_id=str(order.id),
         metadata={"order_id": str(order.id)},

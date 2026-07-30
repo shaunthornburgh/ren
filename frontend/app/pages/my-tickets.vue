@@ -6,12 +6,32 @@ definePageMeta({ middleware: 'auth' })
 const { apiFetch } = useApi()
 const { user } = useAuth()
 const { formatDateTime, formatPrice } = useFormat()
+const route = useRoute()
+const router = useRouter()
 
 const { data: orders, pending, refresh } = await useAsyncData(
   'my-orders',
   () => apiFetch<OrderRead[]>('/my-orders'),
   { server: false, default: () => [] as OrderRead[] },
 )
+
+// Stripe redirects back here with ?status=success|cancelled after checkout.
+const checkoutStatus = computed(() => {
+  const status = route.query.status
+  return status === 'success' || status === 'cancelled' ? status : null
+})
+const checkoutOrderId = computed(() => route.query.order_id ?? null)
+
+// The order status only flips to "paid" once Stripe's webhook lands, which may
+// arrive a moment after the redirect — refresh so the paid order shows up.
+onMounted(() => {
+  if (checkoutStatus.value === 'success') refresh()
+})
+
+// Drop the query params so the banner doesn't linger on refresh/back.
+function dismissCheckoutStatus() {
+  router.replace({ query: {} })
+}
 
 const statusStyles: Record<string, string> = {
   paid: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
@@ -55,6 +75,37 @@ async function completePayment(order: OrderRead) {
         <p class="text-gray-500 dark:text-gray-400">
           Orders for {{ user?.full_name || user?.email }}
         </p>
+      </div>
+
+      <!-- checkout result banner (from Stripe redirect) -->
+      <div
+        v-if="checkoutStatus === 'success'"
+        class="flex items-start gap-3 p-4 mt-6 text-green-800 border border-green-200 rounded-xl bg-green-50 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <div class="flex-1">
+          <p class="font-semibold">Payment successful</p>
+          <p class="text-sm">
+            Thanks! {{ checkoutOrderId ? `Order #${checkoutOrderId} is confirmed` : 'Your order is confirmed' }}.
+            Your tickets appear below once payment is processed.
+          </p>
+        </div>
+        <button type="button" class="text-sm underline shrink-0" @click="dismissCheckoutStatus">Dismiss</button>
+      </div>
+
+      <div
+        v-else-if="checkoutStatus === 'cancelled'"
+        class="flex items-start gap-3 p-4 mt-6 text-yellow-800 border border-yellow-200 rounded-xl bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-200 dark:border-yellow-800"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <div class="flex-1">
+          <p class="font-semibold">Payment cancelled</p>
+          <p class="text-sm">
+            {{ checkoutOrderId ? `Order #${checkoutOrderId} wasn't` : 'Your order wasn\'t' }} paid.
+            You can complete payment any time from the order below.
+          </p>
+        </div>
+        <button type="button" class="text-sm underline shrink-0" @click="dismissCheckoutStatus">Dismiss</button>
       </div>
 
       <p v-if="actionError" class="mt-4 text-sm text-red-500">{{ actionError }}</p>
