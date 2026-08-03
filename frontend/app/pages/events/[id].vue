@@ -38,6 +38,23 @@ const { data, pending, error } = await useAsyncData(
   { server: false },
 )
 
+// Whether the current user may manage this event (drives the Manage link).
+// Isolated + fail-safe so it never breaks the public page for anyone.
+const { data: canManage } = await useAsyncData(
+  `event-${eventId}-can-manage`,
+  async () => {
+    try {
+      const res = await apiFetch<{ can_manage: boolean }>(
+        `/events/${eventId}/can-manage`,
+      )
+      return res.can_manage
+    } catch {
+      return false
+    }
+  },
+  { server: false, default: () => false },
+)
+
 // Registration answers keyed by question id.
 const answers = reactive<Record<number, string>>({})
 watch(
@@ -190,6 +207,15 @@ async function buy() {
 
         <!-- details -->
         <div class="lg:col-span-2">
+          <!-- manage link (only for users who can manage this event) -->
+          <NuxtLink
+            v-if="canManage"
+            :to="`/dashboard/events/${data.event.id}`"
+            class="inline-flex items-center gap-1.5 px-4 py-1.5 mb-5 text-sm font-semibold text-purple-600 transition duration-200 border rounded-full border-purple-200 hover:bg-purple-50 dark:border-gray-700 dark:text-purple-400 dark:hover:bg-gray-800"
+          >
+            <i class="bx bx-cog"></i> Manage event
+          </NuxtLink>
+
           <div class="space-y-5">
             <h1 class="text-4xl font-bold">{{ data.event.title }}</h1>
             <p v-if="data.event.description" class="text-gray-600 dark:text-gray-400">
@@ -232,19 +258,29 @@ async function buy() {
           <div v-if="data.hosts.length" class="mt-8">
             <div class="mb-3 text-sm text-gray-400">Hosted by</div>
             <div class="flex flex-wrap gap-2">
-              <component
-                :is="host.user_id ? 'NuxtLink' : 'div'"
-                v-for="(host, i) in data.hosts"
-                :key="i"
-                :to="host.user_id ? `/users/${host.user_id}` : undefined"
-                class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800"
-                :class="host.user_id ? 'transition duration-200 hover:bg-purple-100 dark:hover:bg-gray-700' : ''"
-              >
-                <span class="flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-purple-600 rounded-full">
-                  {{ (host.name || host.email).charAt(0).toUpperCase() }}
-                </span>
-                <span class="text-sm font-medium">{{ host.name || host.email }}</span>
-              </component>
+              <template v-for="(host, i) in data.hosts" :key="i">
+                <!-- linked host → profile -->
+                <NuxtLink
+                  v-if="host.user_id"
+                  :to="`/users/${host.user_id}`"
+                  class="flex items-center gap-2 px-3 py-1.5 transition duration-200 rounded-full bg-gray-100 hover:bg-purple-100 dark:bg-gray-800 dark:hover:bg-gray-700"
+                >
+                  <span class="flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-purple-600 rounded-full">
+                    {{ (host.name || host.email).charAt(0).toUpperCase() }}
+                  </span>
+                  <span class="text-sm font-medium">{{ host.name || host.email }}</span>
+                </NuxtLink>
+                <!-- pending host (no account yet) → plain text -->
+                <div
+                  v-else
+                  class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800"
+                >
+                  <span class="flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-purple-600 rounded-full">
+                    {{ (host.name || host.email).charAt(0).toUpperCase() }}
+                  </span>
+                  <span class="text-sm font-medium">{{ host.name || host.email }}</span>
+                </div>
+              </template>
             </div>
           </div>
 

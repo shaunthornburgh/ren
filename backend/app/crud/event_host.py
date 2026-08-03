@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import select, update as sa_update
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.calendar import Calendar
 from app.models.event import Event
 from app.models.event_host import EventHost, HostRole, HostStatus
 from app.models.user import User, UserRole
@@ -95,13 +96,19 @@ def delete(db: Session, *, db_obj: EventHost) -> None:
 def can_manage(db: Session, *, event: Event, user: User) -> bool:
     """Whether ``user`` may manage ``event``.
 
-    True for admins, the event's creator, and any user linked to an accepted
-    *manager* host row for the event.
+    True for admins, the event's creator, the owner of the event's calendar,
+    and any user linked to an accepted *manager* host row for the event.
     """
     if user.role is UserRole.ADMIN:
         return True
     if event.organizer_id == user.id:
         return True
+    if event.calendar_id is not None:
+        calendar_owner_id = db.scalar(
+            select(Calendar.owner_id).where(Calendar.id == event.calendar_id)
+        )
+        if calendar_owner_id == user.id:
+            return True
     host = db.scalar(
         select(EventHost.id).where(
             EventHost.event_id == event.id,
