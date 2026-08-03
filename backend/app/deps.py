@@ -14,6 +14,7 @@ from app import crud
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import decode_access_token
+from app.models.event import Event
 from app.models.user import User, UserRole
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "get_current_active_user",
     "get_current_user_optional",
     "require_role",
+    "load_manageable_event",
 ]
 
 oauth2_scheme = OAuth2PasswordBearer(
@@ -88,6 +90,27 @@ def get_current_user_optional(
     except (TypeError, ValueError):
         return None
     return user if (user and user.is_active) else None
+
+
+def load_manageable_event(
+    event_id: int, db: Session, current_user: User
+) -> Event:
+    """Load an event and assert the caller may manage it.
+
+    Managers are: admins, the event's creator, and users linked to an accepted
+    *manager* host row. Raises 404 if the event is missing, 403 otherwise.
+    """
+    event = crud.event.get(db, id=event_id)
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Event not found."
+        )
+    if not crud.event_host.can_manage(db, event=event, user=current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have manager access to this event.",
+        )
+    return event
 
 
 def require_role(*roles: UserRole):

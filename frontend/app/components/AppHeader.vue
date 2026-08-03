@@ -56,16 +56,8 @@ function signOut() {
 
           <NotificationBell v-if="isAuthenticated" />
 
-          <!-- auth actions (desktop) -->
-          <template v-if="isAuthenticated">
-            <span class="hidden md:block text-sm font-medium text-gray-500 dark:text-gray-400">
-              {{ user?.full_name || user?.email }}
-            </span>
-            <button
-              class="hidden px-5 py-2 font-semibold text-center text-white transition duration-200 bg-purple-600 rounded-full md:block hover:bg-purple-700"
-              @click="signOut"
-            >Sign out</button>
-          </template>
+          <!-- account menu -->
+          <AccountMenu v-if="isAuthenticated" />
           <NuxtLink
             v-else
             to="/login"
@@ -94,6 +86,11 @@ function signOut() {
                 :to="link.to"
                 class="block px-3 py-2 font-semibold transition duration-200 rounded-md hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-gray-700 dark:hover:text-purple-400"
               >{{ link.label }}</NuxtLink>
+              <NuxtLink
+                v-if="isAuthenticated"
+                to="/account"
+                class="block px-3 py-2 font-semibold transition duration-200 rounded-md hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-gray-700 dark:hover:text-purple-400"
+              >Settings</NuxtLink>
               <button
                 v-if="isAuthenticated"
                 class="block w-full px-3 py-2 mt-2 font-semibold text-center text-white transition duration-200 bg-purple-600 rounded-md hover:bg-purple-700"

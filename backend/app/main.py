@@ -1,8 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app import models  # noqa: F401 — register models on Base.metadata
 from app.api.v1 import (
@@ -10,10 +12,15 @@ from app.api.v1 import (
     auth,
     calendars,
     events,
+    faq,
+    hosts,
+    messages,
     notifications,
     orders,
     payments,
+    questions,
     tickets,
+    users,
 )
 from app.core.config import settings
 from app.core.database import Base, engine
@@ -57,6 +64,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Serve uploaded files (e.g. avatars) statically. The directory is created up
+# front so the mount succeeds on a fresh checkout.
+_uploads_dir = Path(settings.UPLOAD_DIR)
+_uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
+
 
 @app.get("/")
 async def root():
@@ -73,7 +86,12 @@ app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(agenda.router, prefix=settings.API_V1_PREFIX)
 app.include_router(calendars.router, prefix=settings.API_V1_PREFIX)
 app.include_router(events.router, prefix=settings.API_V1_PREFIX)
+app.include_router(faq.router, prefix=settings.API_V1_PREFIX)
+app.include_router(hosts.router, prefix=settings.API_V1_PREFIX)
+app.include_router(messages.router, prefix=settings.API_V1_PREFIX)
 app.include_router(notifications.router, prefix=settings.API_V1_PREFIX)
+app.include_router(questions.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tickets.router, prefix=settings.API_V1_PREFIX)
+app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 app.include_router(orders.router, prefix=settings.API_V1_PREFIX)
 app.include_router(payments.router, prefix=settings.API_V1_PREFIX)

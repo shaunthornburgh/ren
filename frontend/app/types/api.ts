@@ -11,7 +11,25 @@ export interface UserRead {
   full_name: string | null
   role: UserRole
   is_active: boolean
+  display_name: string | null
+  bio: string | null
+  avatar_url: string | null
   created_at: string
+}
+
+export interface UserProfileUpdate {
+  display_name?: string | null
+  bio?: string | null
+  avatar_url?: string | null
+}
+
+// Public profile (no email or sensitive fields), with events they host.
+export interface PublicUserProfile {
+  id: number
+  display_name: string
+  bio: string | null
+  avatar_url: string | null
+  hosting_events: EventRead[]
 }
 
 export interface Token {
@@ -144,6 +162,131 @@ export interface AgendaItemCreate {
   sort_order?: number
 }
 export type AgendaItemUpdate = Partial<AgendaItemCreate>
+
+// ---- Event FAQ ----
+
+export interface FaqItemRead {
+  id: number
+  event_id: number
+  question: string
+  answer: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface FaqItemCreate {
+  question: string
+  answer: string
+  sort_order?: number
+}
+export type FaqItemUpdate = Partial<FaqItemCreate>
+
+// ---- Registration questions ----
+
+export type RegistrationFieldType = 'text' | 'textarea' | 'url'
+
+export interface RegistrationQuestionRead {
+  id: number
+  event_id: number
+  label: string
+  field_type: RegistrationFieldType
+  required: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface RegistrationQuestionCreate {
+  label: string
+  field_type?: RegistrationFieldType
+  required?: boolean
+  sort_order?: number
+}
+export type RegistrationQuestionUpdate = Partial<RegistrationQuestionCreate>
+
+export interface RegistrationAnswerInput {
+  question_id: number
+  value: string
+}
+
+export interface RegistrationAnswerRead {
+  question_id: number
+  label: string
+  value: string
+}
+
+// ---- Guests (organizer view of an event's attendees) ----
+
+export interface GuestTicketLine {
+  ticket_type_name: string
+  quantity: number
+}
+
+export interface GuestRead {
+  order_id: number
+  status: OrderStatus
+  created_at: string
+  email: string
+  full_name: string | null
+  total_quantity: number
+  items: GuestTicketLine[]
+  answers: RegistrationAnswerRead[]
+}
+
+// ---- Event messages (organizer → guests) ----
+
+export interface EventMessageRead {
+  id: number
+  subject: string
+  body: string
+  recipient_count: number
+  created_at: string
+}
+
+export interface EventMessageCreate {
+  subject: string
+  body: string
+}
+
+// ---- Event hosts ----
+
+export type HostRole = 'manager' | 'host'
+export type HostStatus = 'pending' | 'accepted'
+
+export interface EventHostRead {
+  id: number
+  event_id: number
+  user_id: number | null
+  email: string
+  name: string | null
+  role: HostRole
+  show_on_page: boolean
+  status: HostStatus
+  is_creator: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface PublicHostRead {
+  user_id: number | null
+  name: string | null
+  email: string
+  role: HostRole
+}
+
+export interface EventHostCreate {
+  email: string
+  name?: string | null
+  role?: HostRole
+  show_on_page?: boolean
+}
+
+export interface EventHostUpdate {
+  name?: string | null
+  role?: HostRole
+  show_on_page?: boolean
+}
 
 // ---- Calendars ----
 

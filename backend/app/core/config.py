@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     # Frontend base URL — used to build Stripe success/cancel redirect URLs.
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # Public base URL of THIS backend — used to build absolute URLs for
+    # uploaded files (avatars) that the frontend/browser loads directly.
+    BACKEND_URL: str = "http://localhost:8000"
+
+    # Local uploads (served statically at /uploads). Fine for dev; swap for
+    # object storage (S3/GCS) in production.
+    UPLOAD_DIR: str = "uploads"
+    MAX_AVATAR_BYTES: int = 5 * 1024 * 1024  # 5 MB
+
     # Stripe (test-mode keys for now). Loaded from the environment; never
     # commit real keys. STRIPE_WEBHOOK_SECRET is the signing secret shown when
     # you register the webhook endpoint (or run `stripe listen` locally).

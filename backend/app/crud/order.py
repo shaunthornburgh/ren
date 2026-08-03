@@ -6,8 +6,13 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.order import Order, OrderStatus
 from app.models.order_item import OrderItem
+from app.models.registration_question import (
+    RegistrationAnswer,
+    RegistrationQuestion,
+)
 from app.models.ticket import Ticket, TicketStatus
 from app.models.ticket_type import TicketType
+from app.models.user import User
 from app.schemas.order import OrderCreate
 
 
@@ -25,6 +30,14 @@ class QuantityExceedsMaxError(OrderError):
 
 class InsufficientStockError(OrderError):
     """Not enough inventory remains to satisfy the request."""
+
+
+class MissingRequiredAnswerError(OrderError):
+    """A required registration question was left unanswered."""
+
+
+class InvalidQuestionError(OrderError):
+    """An answer references a question that doesn't belong to this order."""
 
 
 def get(db: Session, *, id: int) -> Order | None:
@@ -57,6 +70,53 @@ def get_multi_by_user(
         .limit(limit)
     )
     return db.scalars(stmt).all()
+
+
+def get_event_guests(db: Session, *, event_id: int) -> Sequence[Order]:
+    """List orders containing tickets for an event (organizer's guest list).
+
+    Newest first, with the buyer and the order's items (and their ticket types)
+    eagerly loaded. An order is included if any of its items is for a ticket
+    type belonging to this event.
+    """
+    stmt = (
+        select(Order)
+        .join(Order.items)
+        .join(OrderItem.ticket_type)
+        .where(TicketType.event_id == event_id)
+        .options(
+            selectinload(Order.user),
+            selectinload(Order.items).selectinload(OrderItem.ticket_type),
+            selectinload(Order.registration_answers).selectinload(
+                RegistrationAnswer.question
+            ),
+        )
+        .order_by(Order.created_at.desc())
+        .distinct()
+    )
+    return db.scalars(stmt).unique().all()
+
+
+def get_event_recipient_emails(
+    db: Session,
+    *,
+    event_id: int,
+    statuses: Sequence[OrderStatus] = (OrderStatus.PAID,),
+) -> list[str]:
+    """Unique emails of guests with an order (in ``statuses``) for an event."""
+    stmt = (
+        select(User.email)
+        .join(Order, Order.user_id == User.id)
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .join(TicketType, TicketType.id == OrderItem.ticket_type_id)
+        .where(
+            TicketType.event_id == event_id,
+            Order.status.in_(statuses),
+            User.is_active.is_(True),
+        )
+        .distinct()
+    )
+    return list(db.scalars(stmt).all())
 
 
 def create(db: Session, *, obj_in: OrderCreate, user_id: int) -> Order:
@@ -115,6 +175,14 @@ def create(db: Session, *, obj_in: OrderCreate, user_id: int) -> Order:
             )
 
         order.total_amount = total
+
+        _attach_registration_answers(
+            db,
+            order=order,
+            event_ids={tt.event_id for tt in ticket_types.values()},
+            answers=obj_in.answers,
+        )
+
         db.add(order)
         db.commit()
         db.refresh(order)
@@ -122,6 +190,46 @@ def create(db: Session, *, obj_in: OrderCreate, user_id: int) -> Order:
     except Exception:
         db.rollback()
         raise
+
+
+def _attach_registration_answers(
+    db: Session,
+    *,
+    order: Order,
+    event_ids: set[int],
+    answers,
+) -> None:
+    """Validate and attach registration answers to a new order.
+
+    Ensures every required question for the order's event(s) is answered and
+    that submitted answers reference questions belonging to those events.
+    """
+    questions = {
+        q.id: q
+        for q in db.scalars(
+            select(RegistrationQuestion).where(
+                RegistrationQuestion.event_id.in_(event_ids)
+            )
+        ).all()
+    }
+    provided = {a.question_id: a.value.strip() for a in answers}
+
+    for question_id in provided:
+        if question_id not in questions:
+            raise InvalidQuestionError(
+                f"Question {question_id} does not belong to this event."
+            )
+
+    for question in questions.values():
+        answer = provided.get(question.id, "")
+        if question.required and not answer:
+            raise MissingRequiredAnswerError(
+                f"'{question.label}' is required."
+            )
+        if answer:
+            order.registration_answers.append(
+                RegistrationAnswer(question_id=question.id, value=answer)
+            )
 
 
 def fulfill(

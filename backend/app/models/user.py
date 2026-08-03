@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, String, func
+from sqlalchemy import DateTime, Enum, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -38,6 +38,12 @@ class User(Base):
         nullable=False,
     )
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+
+    # Public profile fields (all optional).
+    display_name: Mapped[str | None] = mapped_column(String(255))
+    bio: Mapped[str | None] = mapped_column(Text)
+    avatar_url: Mapped[str | None] = mapped_column(String(512))
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

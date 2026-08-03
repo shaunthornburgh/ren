@@ -50,7 +50,7 @@ const statuses: { value: EventStatus; label: string }[] = [
 ]
 
 const inputClass =
-  'w-full h-12 px-4 border rounded-xl border-gray-200 focus:outline-none focus:ring-2 focus:border-purple-600 dark:bg-gray-800 dark:border-gray-800'
+  'w-full h-11 px-3 border rounded-lg border-gray-200 focus:outline-none focus:ring-2 focus:border-purple-600 dark:bg-gray-900 dark:border-gray-700'
 
 function onSubmit() {
   localError.value = ''
@@ -94,7 +94,7 @@ function onSubmit() {
 
     <div class="space-y-1.5">
       <label for="description" class="text-sm font-medium">Description</label>
-      <textarea id="description" v-model="form.description" rows="4" placeholder="Tell attendees what to expect…" class="w-full px-4 py-3 border rounded-xl border-gray-200 focus:outline-none focus:ring-2 focus:border-purple-600 dark:bg-gray-800 dark:border-gray-800"></textarea>
+      <textarea id="description" v-model="form.description" rows="4" placeholder="Tell attendees what to expect…" class="w-full px-3 py-2 border rounded-lg border-gray-200 focus:outline-none focus:ring-2 focus:border-purple-600 dark:bg-gray-900 dark:border-gray-700"></textarea>
     </div>
 
     <div class="grid gap-5 sm:grid-cols-2">

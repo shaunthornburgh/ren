@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from app import crud
 from app.crud.order import (
     InsufficientStockError,
+    InvalidQuestionError,
+    MissingRequiredAnswerError,
     QuantityExceedsMaxError,
     TicketTypeNotFoundError,
 )
@@ -38,7 +40,11 @@ def create_order(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         )
-    except QuantityExceedsMaxError as exc:
+    except (
+        QuantityExceedsMaxError,
+        MissingRequiredAnswerError,
+        InvalidQuestionError,
+    ) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         )

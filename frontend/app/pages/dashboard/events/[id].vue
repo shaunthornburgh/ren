@@ -4,6 +4,7 @@ import type { CalendarRead, EventCreate, EventRead } from '~/types/api'
 definePageMeta({ middleware: 'organizer' })
 
 const route = useRoute()
+const router = useRouter()
 const { apiFetch } = useApi()
 
 const eventId = Number(route.params.id)
@@ -20,6 +21,37 @@ const { data: calendars } = await useAsyncData(
   { server: false, default: () => [] as CalendarRead[] },
 )
 
+// --- tabs (state synced to the ?tab= query param) ---
+const tabs = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'registration', label: 'Registration' },
+  { key: 'guests', label: 'Guests' },
+  { key: 'messages', label: 'Messages' },
+] as const
+type TabKey = (typeof tabs)[number]['key']
+const tabKeys = tabs.map((t) => t.key) as readonly string[]
+
+function resolveTab(value: unknown): TabKey {
+  return (tabKeys.includes(value as string) ? value : 'overview') as TabKey
+}
+
+const activeTab = ref<TabKey>(resolveTab(route.query.tab))
+
+function selectTab(key: TabKey) {
+  activeTab.value = key
+  router.replace({ query: { ...route.query, tab: key } })
+}
+
+// Keep the tab in sync with browser back/forward.
+watch(
+  () => route.query.tab,
+  (value) => {
+    const next = resolveTab(value)
+    if (next !== activeTab.value) activeTab.value = next
+  },
+)
+
+// --- overview: save/publish ---
 const submitting = ref(false)
 const errorMsg = ref('')
 const savedAt = ref(false)
@@ -36,8 +68,7 @@ async function updateEvent(payload: EventCreate) {
     savedAt.value = true
   } catch (e: any) {
     errorMsg.value =
-      e?.data?.detail?.toString() ||
-      'Could not save changes. Please try again.'
+      e?.data?.detail?.toString() || 'Could not save changes. Please try again.'
   } finally {
     submitting.value = false
   }
@@ -46,7 +77,7 @@ async function updateEvent(payload: EventCreate) {
 
 <template>
   <section>
-    <div class="container max-w-3xl px-4 py-6 mx-auto md:py-10 lg:py-12">
+    <div class="container max-w-screen-xl px-4 py-6 mx-auto md:py-10 lg:py-12">
       <NuxtLink to="/dashboard" class="text-sm text-purple-600 hover:text-purple-700">← Back to dashboard</NuxtLink>
 
       <div v-if="pending" class="mt-6 text-gray-500">Loading event…</div>
@@ -56,38 +87,78 @@ async function updateEvent(payload: EventCreate) {
         <p class="mt-2 text-gray-500">It may have been removed, or you may not have access.</p>
       </div>
 
-      <div v-else class="space-y-12">
-        <!-- edit event -->
-        <div>
-          <div class="flex items-center justify-between mt-3">
-            <h1 class="text-3xl font-bold">Edit event</h1>
-            <NuxtLink :to="`/events/${event.id}`" class="text-sm text-purple-600 hover:text-purple-700">View public page →</NuxtLink>
-          </div>
-
-          <p v-if="savedAt" class="p-3 mt-4 text-sm text-green-700 rounded-lg bg-green-100 dark:bg-green-900 dark:text-green-300">
-            Changes saved.
-          </p>
-
-          <div class="mt-6">
-            <OrganizerEventForm
-              :event="event"
-              :calendars="calendars"
-              :submitting="submitting"
-              :error="errorMsg"
-              submit-label="Save changes"
-              @submit="updateEvent"
-            />
-          </div>
+      <div v-else>
+        <!-- header -->
+        <div class="flex items-center justify-between mt-3">
+          <h1 class="text-3xl font-bold truncate">{{ event.title }}</h1>
+          <NuxtLink :to="`/events/${event.id}`" class="flex-shrink-0 text-sm text-purple-600 hover:text-purple-700">View public page →</NuxtLink>
         </div>
 
-        <!-- manage ticket types -->
-        <div class="pt-10 border-t dark:border-gray-800">
-          <TicketTypeManager :event-id="eventId" />
+        <!-- tab nav -->
+        <div class="flex gap-1 mt-6 overflow-x-auto border-b no-scrollbar dark:border-gray-800">
+          <button
+            v-for="t in tabs"
+            :key="t.key"
+            type="button"
+            class="px-4 py-3 text-sm font-semibold transition duration-200 border-b-2 whitespace-nowrap -mb-px"
+            :class="activeTab === t.key
+              ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'"
+            @click="selectTab(t.key)"
+          >{{ t.label }}</button>
         </div>
 
-        <!-- manage agenda / schedule -->
-        <div class="pt-10 border-t dark:border-gray-800">
-          <AgendaManager :event-id="eventId" />
+        <!-- panels -->
+        <div class="mt-8">
+          <!-- Overview -->
+          <div v-show="activeTab === 'overview'" class="space-y-12">
+            <div class="space-y-4">
+              <h2 class="text-2xl font-bold">Edit Event Details</h2>
+              <div class="p-5 space-y-4 border rounded-2xl bg-gray-50 dark:bg-gray-800/40 dark:border-gray-800">
+                <p v-if="savedAt" class="p-3 text-sm text-green-700 rounded-lg bg-green-100 dark:bg-green-900 dark:text-green-300">
+                  Changes saved.
+                </p>
+                <OrganizerEventForm
+                  :event="event"
+                  :calendars="calendars"
+                  :submitting="submitting"
+                  :error="errorMsg"
+                  submit-label="Save changes"
+                  @submit="updateEvent"
+                />
+              </div>
+            </div>
+
+            <div class="pt-10 border-t dark:border-gray-800">
+              <HostManager :event-id="eventId" />
+            </div>
+
+            <div class="pt-10 border-t dark:border-gray-800">
+              <AgendaManager :event-id="eventId" />
+            </div>
+
+            <div class="pt-10 border-t dark:border-gray-800">
+              <FaqManager :event-id="eventId" />
+            </div>
+          </div>
+
+          <!-- Registration -->
+          <div v-show="activeTab === 'registration'" class="space-y-12">
+            <TicketTypeManager :event-id="eventId" />
+            <div class="pt-10 border-t dark:border-gray-800">
+              <QuestionManager :event-id="eventId" />
+            </div>
+          </div>
+
+          <!-- Guests -->
+          <div v-show="activeTab === 'guests'">
+            <GuestList :event-id="eventId" />
+          </div>
+
+          <!-- Messages -->
+          <div v-show="activeTab === 'messages'">
+            <MessageComposer :event-id="eventId" />
+          </div>
         </div>
       </div>
     </div>

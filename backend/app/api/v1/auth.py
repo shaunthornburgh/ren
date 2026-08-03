@@ -37,7 +37,10 @@ def register(
             status_code=status.HTTP_409_CONFLICT,
             detail="A user with this email already exists.",
         )
-    return crud.user.create(db, obj_in=user_in)
+    user = crud.user.create(db, obj_in=user_in)
+    # Link any host invites that were waiting on this email.
+    crud.event_host.link_pending_for_user(db, user=user)
+    return user
 
 
 @router.post("/login", response_model=Token)
@@ -59,6 +62,8 @@ def login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This account is inactive.",
         )
+    # Link any host invites that were waiting on this email.
+    crud.event_host.link_pending_for_user(db, user=user)
     return _token_for(user)
 
 

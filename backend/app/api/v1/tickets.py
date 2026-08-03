@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app import crud
-from app.deps import get_db, require_role
+from app.deps import get_current_active_user, get_db, load_manageable_event
 from app.models.event import Event
 from app.models.ticket_type import TicketType
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.schemas.ticket_type import (
     TicketTypeCreate,
     TicketTypeRead,
@@ -28,17 +28,8 @@ def _get_event_or_404(event_id: int, db: Session) -> Event:
 
 
 def _get_owned_event(event_id: int, db: Session, current_user: User) -> Event:
-    """Load an event and assert the caller owns it (admins bypass)."""
-    event = _get_event_or_404(event_id, db)
-    if (
-        event.organizer_id != current_user.id
-        and current_user.role is not UserRole.ADMIN
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not own this event.",
-        )
-    return event
+    """Load an event and assert the caller may manage it."""
+    return load_manageable_event(event_id, db, current_user)
 
 
 @router.get("/{event_id}/ticket-types", response_model=list[TicketTypeRead])
@@ -66,9 +57,7 @@ def create_ticket_type(
     event_id: int,
     ticket_type_in: TicketTypeCreate,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[
-        User, Depends(require_role(UserRole.ORGANIZER, UserRole.ADMIN))
-    ],
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> TicketType:
     """Create a ticket type for an event. Event owner (or admin) only."""
     _get_owned_event(event_id, db, current_user)
@@ -84,9 +73,7 @@ def update_ticket_type(
     ticket_type_id: int,
     ticket_type_in: TicketTypeUpdate,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[
-        User, Depends(require_role(UserRole.ORGANIZER, UserRole.ADMIN))
-    ],
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> TicketType:
     """Update a ticket type. Event owner (or admin) only."""
     _get_owned_event(event_id, db, current_user)

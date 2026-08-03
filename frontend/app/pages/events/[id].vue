@@ -3,7 +3,10 @@ import type {
   AgendaItemRead,
   CheckoutSessionRead,
   EventRead,
+  FaqItemRead,
   OrderRead,
+  PublicHostRead,
+  RegistrationQuestionRead,
   TicketTypeRead,
 } from '~/types/api'
 
@@ -21,14 +24,30 @@ const EVENT_PLACEHOLDER =
 const { data, pending, error } = await useAsyncData(
   `event-${eventId}`,
   async () => {
-    const [event, ticketTypes, agenda] = await Promise.all([
-      apiFetch<EventRead>(`/events/${eventId}`),
-      apiFetch<TicketTypeRead[]>(`/events/${eventId}/ticket-types`),
-      apiFetch<AgendaItemRead[]>(`/events/${eventId}/agenda`),
-    ])
-    return { event, ticketTypes, agenda }
+    const [event, ticketTypes, agenda, faq, questions, hosts] =
+      await Promise.all([
+        apiFetch<EventRead>(`/events/${eventId}`),
+        apiFetch<TicketTypeRead[]>(`/events/${eventId}/ticket-types`),
+        apiFetch<AgendaItemRead[]>(`/events/${eventId}/agenda`),
+        apiFetch<FaqItemRead[]>(`/events/${eventId}/faq`),
+        apiFetch<RegistrationQuestionRead[]>(`/events/${eventId}/questions`),
+        apiFetch<PublicHostRead[]>(`/events/${eventId}/hosts`),
+      ])
+    return { event, ticketTypes, agenda, faq, questions, hosts }
   },
   { server: false },
+)
+
+// Registration answers keyed by question id.
+const answers = reactive<Record<number, string>>({})
+watch(
+  () => data.value?.questions,
+  (questions) => {
+    for (const q of questions ?? []) {
+      if (!(q.id in answers)) answers[q.id] = ''
+    }
+  },
+  { immediate: true },
 )
 
 // Group agenda items by calendar day so multi-day schedules read clearly.
@@ -99,12 +118,26 @@ async function buy() {
 
   if (!items.length) return
 
+  // Validate required registration questions before reserving inventory.
+  const questions = data.value?.questions ?? []
+  const missing = questions.find(
+    (q) => q.required && !(answers[q.id] ?? '').trim(),
+  )
+  if (missing) {
+    purchaseError.value = `Please answer: ${missing.label}`
+    return
+  }
+
+  const answersPayload = questions
+    .map((q) => ({ question_id: q.id, value: (answers[q.id] ?? '').trim() }))
+    .filter((a) => a.value !== '')
+
   purchasing.value = true
   try {
     // 1) Create a pending order (reserves inventory).
     const order = await apiFetch<OrderRead>('/orders', {
       method: 'POST',
-      body: { items },
+      body: { items, answers: answersPayload },
     })
 
     // 2) Create a Stripe Checkout Session and redirect to it.
@@ -195,6 +228,26 @@ async function buy() {
             </div>
           </div>
 
+          <!-- hosts -->
+          <div v-if="data.hosts.length" class="mt-8">
+            <div class="mb-3 text-sm text-gray-400">Hosted by</div>
+            <div class="flex flex-wrap gap-2">
+              <component
+                :is="host.user_id ? 'NuxtLink' : 'div'"
+                v-for="(host, i) in data.hosts"
+                :key="i"
+                :to="host.user_id ? `/users/${host.user_id}` : undefined"
+                class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800"
+                :class="host.user_id ? 'transition duration-200 hover:bg-purple-100 dark:hover:bg-gray-700' : ''"
+              >
+                <span class="flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-purple-600 rounded-full">
+                  {{ (host.name || host.email).charAt(0).toUpperCase() }}
+                </span>
+                <span class="text-sm font-medium">{{ host.name || host.email }}</span>
+              </component>
+            </div>
+          </div>
+
           <!-- tickets -->
           <div class="mt-12 overflow-hidden border rounded-2xl dark:border-gray-800">
             <div class="p-6 space-y-4">
@@ -241,6 +294,31 @@ async function buy() {
             </div>
 
             <div v-if="data.ticketTypes.length" class="p-6 space-y-4 bg-gray-100 dark:bg-gray-800">
+              <!-- registration questions -->
+              <div v-if="data.questions.length && totalCount > 0" class="pb-4 space-y-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="font-semibold">Your details</h3>
+                <div v-for="q in data.questions" :key="q.id" class="space-y-1.5">
+                  <label :for="`q-${q.id}`" class="text-sm font-medium">
+                    {{ q.label }}<span v-if="q.required" class="text-red-500"> *</span>
+                  </label>
+                  <textarea
+                    v-if="q.field_type === 'textarea'"
+                    :id="`q-${q.id}`"
+                    v-model="answers[q.id]"
+                    rows="3"
+                    class="w-full px-3 py-2 border rounded-lg border-gray-200 focus:outline-none focus:ring-2 focus:border-purple-600 dark:bg-gray-900 dark:border-gray-700"
+                  ></textarea>
+                  <input
+                    v-else
+                    :id="`q-${q.id}`"
+                    v-model="answers[q.id]"
+                    :type="q.field_type === 'url' ? 'url' : 'text'"
+                    :placeholder="q.field_type === 'url' ? 'https://…' : ''"
+                    class="w-full h-11 px-3 border rounded-lg border-gray-200 focus:outline-none focus:ring-2 focus:border-purple-600 dark:bg-gray-900 dark:border-gray-700"
+                  />
+                </div>
+              </div>
+
               <div class="flex items-center justify-between">
                 <span class="font-medium text-gray-500">Total</span>
                 <span class="text-2xl font-bold">{{ formatPrice(total) }}</span>
@@ -306,6 +384,17 @@ async function buy() {
               </li>
             </ol>
           </div>
+        </div>
+
+        <!-- FAQ -->
+        <div v-if="data.faq.length">
+          <h2 class="text-3xl font-bold">Event FAQ</h2>
+          <dl class="mt-6 divide-y dark:divide-gray-800">
+            <div v-for="item in data.faq" :key="item.id" class="py-5 first:pt-0">
+              <dt class="text-lg font-semibold">{{ item.question }}</dt>
+              <dd class="mt-2 text-gray-600 dark:text-gray-400 whitespace-pre-line">{{ item.answer }}</dd>
+            </div>
+          </dl>
         </div>
       </div>
     </div>

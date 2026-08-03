@@ -5,6 +5,7 @@ that logs the message (handy for local dev). Nothing here raises to callers —
 email is best-effort and must never break the request that triggered it.
 """
 
+import html as html_lib
 import logging
 import smtplib
 from dataclasses import dataclass
@@ -121,4 +122,43 @@ def send_new_event_emails(batch: NewEventEmail) -> None:
         batch.event_id,
         sent,
         len(batch.recipient_emails),
+    )
+
+
+def send_event_message(
+    *,
+    subject: str,
+    body: str,
+    recipients: list[str],
+    event_id: int,
+    event_title: str,
+) -> None:
+    """Broadcast an organizer's message to an event's guests.
+
+    Designed to run in a background task. Logs an aggregate summary.
+    """
+    if not recipients:
+        return
+
+    event_url = f"{settings.FRONTEND_URL}/events/{event_id}"
+    text = (
+        f"{body}\n\n"
+        f"—\nRegarding: {event_title}\n{event_url}\n"
+    )
+    html = (
+        f'<div style="white-space:pre-wrap">{html_lib.escape(body)}</div>'
+        f'<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">'
+        f'<p style="color:#6b7280;font-size:14px">Regarding '
+        f'<a href="{event_url}">{html_lib.escape(event_title)}</a></p>'
+    )
+
+    sent = sum(
+        send_email(to=addr, subject=subject, text=text, html=html)
+        for addr in recipients
+    )
+    logger.info(
+        "[email] event-message for event %s: %d/%d delivered.",
+        event_id,
+        sent,
+        len(recipients),
     )

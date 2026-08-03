@@ -5,3 +5,6 @@ __pycache__/
 
 # Local environment / secrets (Stripe keys, etc.)
 .env
+
+# Uploaded files (avatars, etc.) — served locally in dev
+backend/uploads/

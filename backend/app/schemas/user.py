@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.models.user import UserRole
+from app.schemas.event import EventRead
 
 
 class UserBase(BaseModel):
@@ -29,4 +30,28 @@ class UserRead(UserBase):
     id: int
     role: UserRole
     is_active: bool
+    display_name: str | None = None
+    bio: str | None = None
+    avatar_url: str | None = None
     created_at: datetime
+
+
+class UserProfileUpdate(BaseModel):
+    """Fields a user may edit on their own profile."""
+
+    display_name: str | None = Field(default=None, max_length=255)
+    bio: str | None = None
+    avatar_url: str | None = Field(default=None, max_length=512)
+
+
+class PublicUserProfile(BaseModel):
+    """Public profile: safe fields only, plus the events they're hosting.
+
+    ``display_name`` is resolved server-side (never exposes the raw email).
+    """
+
+    id: int
+    display_name: str
+    bio: str | None = None
+    avatar_url: str | None = None
+    hosting_events: list[EventRead] = []

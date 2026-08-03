@@ -1,11 +1,13 @@
 from collections.abc import Sequence
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TypedDict
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.event import Event, EventStatus
+from app.models.event_host import EventHost, HostRole, HostStatus
 from app.models.ticket import Ticket, TicketStatus
 from app.schemas.event import EventCreate, EventUpdate
 
@@ -89,6 +91,43 @@ def get_multi_by_organizer_with_stats(
             )
         )
     return results
+
+
+def get_upcoming_hosted_by_user(
+    db: Session, *, user_id: int, limit: int = 50
+) -> Sequence[Event]:
+    """Upcoming published events a user hosts, for their public profile.
+
+    Includes events they created, and events where they're an accepted host
+    that is either shown on the page or a manager. Soonest first, de-duplicated.
+    """
+    now = datetime.now(timezone.utc)
+    host_event_ids = (
+        select(EventHost.event_id)
+        .where(
+            EventHost.user_id == user_id,
+            EventHost.status == HostStatus.ACCEPTED,
+            or_(
+                EventHost.show_on_page.is_(True),
+                EventHost.role == HostRole.MANAGER,
+            ),
+        )
+        .scalar_subquery()
+    )
+    stmt = (
+        select(Event)
+        .where(
+            Event.status == EventStatus.PUBLISHED,
+            Event.end_datetime >= now,
+            or_(
+                Event.organizer_id == user_id,
+                Event.id.in_(host_event_ids),
+            ),
+        )
+        .order_by(Event.start_datetime)
+        .limit(limit)
+    )
+    return db.scalars(stmt).all()
 
 
 def create(db: Session, *, obj_in: EventCreate, organizer_id: int) -> Event:

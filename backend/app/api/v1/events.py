@@ -12,7 +12,12 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app.core import email
-from app.deps import get_current_active_user, get_db, require_role
+from app.deps import (
+    get_current_active_user,
+    get_db,
+    load_manageable_event,
+    require_role,
+)
 from app.models.event import Event, EventStatus
 from app.models.user import User, UserRole
 from app.schemas.event import (
@@ -21,6 +26,8 @@ from app.schemas.event import (
     EventUpdate,
     OrganizerEventRead,
 )
+from app.schemas.guest import GuestRead, GuestTicketLine
+from app.schemas.registration_question import RegistrationAnswerRead
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -28,21 +35,8 @@ router = APIRouter(prefix="/events", tags=["events"])
 def _get_owned_event(
     event_id: int, db: Session, current_user: User
 ) -> Event:
-    """Load an event and assert the caller owns it (admins bypass)."""
-    event = crud.event.get(db, id=event_id)
-    if event is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Event not found."
-        )
-    if (
-        event.organizer_id != current_user.id
-        and current_user.role is not UserRole.ADMIN
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not own this event.",
-        )
-    return event
+    """Load an event and assert the caller may manage it (creator/manager/admin)."""
+    return load_manageable_event(event_id, db, current_user)
 
 
 def _assert_calendar_owned(
@@ -146,6 +140,52 @@ def get_event(
             status_code=status.HTTP_404_NOT_FOUND, detail="Event not found."
         )
     return event
+
+
+@router.get("/{event_id}/guests", response_model=list[GuestRead])
+def list_event_guests(
+    event_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> list[GuestRead]:
+    """List people who ordered tickets for this event. Owner (or admin) only."""
+    _get_owned_event(event_id, db, current_user)
+
+    guests: list[GuestRead] = []
+    for order in crud.order.get_event_guests(db, event_id=event_id):
+        # An order may span multiple events; keep only this event's lines.
+        lines = [
+            GuestTicketLine(
+                ticket_type_name=item.ticket_type.name, quantity=item.quantity
+            )
+            for item in order.items
+            if item.ticket_type.event_id == event_id
+        ]
+        if not lines:
+            continue
+        answers = [
+            RegistrationAnswerRead(
+                question_id=answer.question_id,
+                label=answer.question.label,
+                value=answer.value,
+            )
+            for answer in order.registration_answers
+            if answer.question is not None
+            and answer.question.event_id == event_id
+        ]
+        guests.append(
+            GuestRead(
+                order_id=order.id,
+                status=order.status,
+                created_at=order.created_at,
+                email=order.user.email,
+                full_name=order.user.full_name,
+                total_quantity=sum(line.quantity for line in lines),
+                items=lines,
+                answers=answers,
+            )
+        )
+    return guests
 
 
 @router.put("/{event_id}", response_model=EventRead)

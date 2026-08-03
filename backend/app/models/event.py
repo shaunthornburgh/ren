@@ -18,6 +18,10 @@ from app.core.database import Base
 if TYPE_CHECKING:
     from app.models.agenda_item import AgendaItem
     from app.models.calendar import Calendar
+    from app.models.event_host import EventHost
+    from app.models.event_message import EventMessage
+    from app.models.faq_item import EventFaqItem
+    from app.models.registration_question import RegistrationQuestion
     from app.models.ticket_type import TicketType
     from app.models.user import User
 
@@ -73,6 +77,26 @@ class Event(Base):
     )
 
     agenda_items: Mapped[list["AgendaItem"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+    )
+
+    faq_items: Mapped[list["EventFaqItem"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+    )
+
+    messages: Mapped[list["EventMessage"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+    )
+
+    registration_questions: Mapped[list["RegistrationQuestion"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+    )
+
+    hosts: Mapped[list["EventHost"]] = relationship(
         back_populates="event",
         cascade="all, delete-orphan",
     )

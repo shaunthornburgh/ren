@@ -9,6 +9,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.order_item import OrderItem
+    from app.models.registration_question import RegistrationAnswer
     from app.models.ticket import Ticket
     from app.models.user import User
 
@@ -63,6 +64,11 @@ class Order(Base):
     )
 
     tickets: Mapped[list["Ticket"]] = relationship(
+        back_populates="order",
+        cascade="all, delete-orphan",
+    )
+
+    registration_answers: Mapped[list["RegistrationAnswer"]] = relationship(
         back_populates="order",
         cascade="all, delete-orphan",
     )

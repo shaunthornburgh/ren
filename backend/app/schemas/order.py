@@ -4,6 +4,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.order import OrderStatus
+from app.schemas.registration_question import RegistrationAnswerInput
 from app.schemas.ticket import TicketRead
 
 
@@ -18,6 +19,7 @@ class OrderCreate(BaseModel):
     """Payload to create an order. Buyer is inferred from the token."""
 
     items: list[OrderItemCreate] = Field(min_length=1)
+    answers: list[RegistrationAnswerInput] = []
 
 
 class OrderItemRead(BaseModel):

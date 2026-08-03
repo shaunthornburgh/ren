@@ -44,7 +44,7 @@ async function createEvent(payload: EventCreate) {
         Set up the details. You can add ticket types after saving.
       </p>
 
-      <div class="mt-8">
+      <div class="p-5 mt-8 border rounded-2xl bg-gray-50 dark:bg-gray-800/40 dark:border-gray-800">
         <OrganizerEventForm
           :calendars="calendars"
           :submitting="submitting"
