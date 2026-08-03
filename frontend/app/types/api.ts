@@ -28,7 +28,7 @@ export interface EventRead {
   location: string | null
   image_url: string | null
   capacity: number | null
-  calendar_id: number | null
+  calendar_id: number
   status: EventStatus
   organizer_id: number
   created_at: string
@@ -97,7 +97,7 @@ export interface EventCreate {
   location?: string | null
   image_url?: string | null
   capacity?: number | null
-  calendar_id?: number | null
+  calendar_id: number
   status?: EventStatus
 }
 export type EventUpdate = Partial<EventCreate>

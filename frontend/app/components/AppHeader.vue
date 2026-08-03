@@ -54,6 +54,8 @@ function signOut() {
         <div class="flex items-center space-x-3">
           <ThemeToggle />
 
+          <NotificationBell v-if="isAuthenticated" />
+
           <!-- auth actions (desktop) -->
           <template v-if="isAuthenticated">
             <span class="hidden md:block text-sm font-medium text-gray-500 dark:text-gray-400">

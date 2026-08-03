@@ -33,9 +33,13 @@ const form = reactive({
   location: props.event?.location ?? '',
   image_url: props.event?.image_url ?? '',
   capacity: props.event?.capacity ?? null,
-  calendar_id: props.event?.calendar_id ?? null,
+  // Default to the event's calendar, else the organizer's first calendar.
+  calendar_id: props.event?.calendar_id ?? props.calendars?.[0]?.id ?? null,
   status: (props.event?.status ?? 'draft') as EventStatus,
 })
+
+// Events must belong to a calendar; block the form until one exists.
+const hasCalendars = computed(() => (props.calendars ?? []).length > 0)
 
 const localError = ref('')
 
@@ -62,6 +66,11 @@ function onSubmit() {
     return
   }
 
+  if (form.calendar_id === null || form.calendar_id === ('' as any)) {
+    localError.value = 'Please select a calendar for this event.'
+    return
+  }
+
   emit('submit', {
     title: form.title.trim(),
     description: form.description.trim() || null,
@@ -70,7 +79,7 @@ function onSubmit() {
     location: form.location.trim() || null,
     image_url: form.image_url.trim() || null,
     capacity: form.capacity === null || form.capacity === ('' as any) ? null : Number(form.capacity),
-    calendar_id: form.calendar_id === null || form.calendar_id === ('' as any) ? null : Number(form.calendar_id),
+    calendar_id: Number(form.calendar_id),
     status: form.status,
   })
 }
@@ -110,14 +119,23 @@ function onSubmit() {
     </div>
 
     <div class="space-y-1.5">
-      <label for="calendar" class="text-sm font-medium">Calendar</label>
-      <select id="calendar" v-model="form.calendar_id" :class="inputClass">
-        <option :value="null">No calendar</option>
+      <label for="calendar" class="text-sm font-medium">Calendar <span class="text-red-500">*</span></label>
+      <select
+        id="calendar"
+        v-model="form.calendar_id"
+        required
+        :disabled="!hasCalendars"
+        :class="inputClass"
+      >
+        <option :value="null" disabled>Select a calendar…</option>
         <option v-for="c in calendars ?? []" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
-      <p class="text-xs text-gray-400">
-        Publishing on a calendar notifies its followers.
-        <NuxtLink v-if="!(calendars ?? []).length" to="/dashboard/calendars/new" class="text-purple-600 hover:text-purple-700">Create one first →</NuxtLink>
+      <p v-if="hasCalendars" class="text-xs text-gray-400">
+        Every event belongs to a calendar. Publishing notifies its followers.
+      </p>
+      <p v-else class="text-xs text-amber-600 dark:text-amber-400">
+        You need a calendar before creating an event.
+        <NuxtLink to="/dashboard/calendars/new" class="font-medium text-purple-600 hover:text-purple-700">Create one first →</NuxtLink>
       </p>
     </div>
 
@@ -139,8 +157,8 @@ function onSubmit() {
     <div class="flex items-center gap-3">
       <button
         type="submit"
-        class="px-6 py-3 font-semibold text-white transition duration-200 bg-purple-600 rounded-full disabled:opacity-50 hover:bg-purple-700"
-        :disabled="submitting"
+        class="px-6 py-3 font-semibold text-white transition duration-200 bg-purple-600 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700"
+        :disabled="submitting || !hasCalendars"
       >{{ submitting ? 'Saving…' : (submitLabel || 'Save event') }}</button>
       <NuxtLink to="/dashboard" class="px-6 py-3 font-semibold text-gray-600 transition duration-200 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</NuxtLink>
     </div>

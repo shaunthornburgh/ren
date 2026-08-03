@@ -14,7 +14,7 @@ class EventBase(BaseModel):
     location: str | None = Field(default=None, max_length=255)
     image_url: str | None = Field(default=None, max_length=512)
     capacity: int | None = Field(default=None, ge=0)
-    calendar_id: int | None = None
+    calendar_id: int
 
     @model_validator(mode="after")
     def _check_dates(self) -> "EventBase":

@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,6 +17,19 @@ from app.api.v1 import (
 )
 from app.core.config import settings
 from app.core.database import Base, engine
+
+# Surface application INFO logs (email delivery, notification fan-out, …) on
+# stdout. uvicorn only configures its own loggers, leaving the root at WARNING,
+# so we attach a handler to the top-level "app" logger our modules log under.
+_app_logger = logging.getLogger("app")
+if not _app_logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(
+        logging.Formatter("%(levelname)s:     %(name)s - %(message)s")
+    )
+    _app_logger.addHandler(_handler)
+_app_logger.setLevel(logging.INFO)
+_app_logger.propagate = False
 
 
 @asynccontextmanager

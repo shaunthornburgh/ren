@@ -1,9 +1,17 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app import crud
+from app.core import email
 from app.deps import get_current_active_user, get_db, require_role
 from app.models.event import Event, EventStatus
 from app.models.user import User, UserRole
@@ -56,6 +64,15 @@ def _assert_calendar_owned(
         )
 
 
+def _notify_followers(
+    db: Session, event: Event, background_tasks: BackgroundTasks
+) -> None:
+    """Fan out in-app notifications now and schedule follower emails."""
+    batch = crud.notification.notify_new_event(db, event=event)
+    if batch is not None and batch.recipient_emails:
+        background_tasks.add_task(email.send_new_event_emails, batch)
+
+
 @router.post(
     "",
     response_model=EventRead,
@@ -64,25 +81,22 @@ def _assert_calendar_owned(
 def create_event(
     event_in: EventCreate,
     db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
     current_user: Annotated[
         User, Depends(require_role(UserRole.ORGANIZER, UserRole.ADMIN))
     ],
 ) -> Event:
     """Create a new event. Organizers (and admins) only.
 
-    If the event is created already published on a calendar, its followers are
-    notified.
+    Every event belongs to a calendar the caller owns. If it's created already
+    published, the calendar's followers are notified (in-app + email).
     """
-    if event_in.calendar_id is not None:
-        _assert_calendar_owned(event_in.calendar_id, db, current_user)
+    _assert_calendar_owned(event_in.calendar_id, db, current_user)
     event = crud.event.create(
         db, obj_in=event_in, organizer_id=current_user.id
     )
-    if (
-        event.status is EventStatus.PUBLISHED
-        and event.calendar_id is not None
-    ):
-        crud.notification.notify_new_event(db, event=event)
+    if event.status is EventStatus.PUBLISHED:
+        _notify_followers(db, event, background_tasks)
     return event
 
 
@@ -139,24 +153,28 @@ def update_event(
     event_id: int,
     event_in: EventUpdate,
     db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> Event:
     """Update an event. Owner (or admin) only.
 
-    When an event first transitions to *published* on a calendar, its
-    followers are notified.
+    When an event first transitions to *published*, its calendar's followers
+    are notified (in-app + email).
     """
     event = _get_owned_event(event_id, db, current_user)
-    if event_in.calendar_id is not None:
+
+    # calendar_id can be re-pointed but never cleared (it's required).
+    if "calendar_id" in event_in.model_fields_set:
+        if event_in.calendar_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="calendar_id cannot be null.",
+            )
         _assert_calendar_owned(event_in.calendar_id, db, current_user)
 
     was_published = event.status is EventStatus.PUBLISHED
     event = crud.event.update(db, db_obj=event, obj_in=event_in)
 
-    if (
-        not was_published
-        and event.status is EventStatus.PUBLISHED
-        and event.calendar_id is not None
-    ):
-        crud.notification.notify_new_event(db, event=event)
+    if not was_published and event.status is EventStatus.PUBLISHED:
+        _notify_followers(db, event, background_tasks)
     return event

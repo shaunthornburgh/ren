@@ -46,7 +46,11 @@ class Calendar(Base):
     )
     owner: Mapped["User"] = relationship(back_populates="calendars")
 
-    events: Mapped[list["Event"]] = relationship(back_populates="calendar")
+    events: Mapped[list["Event"]] = relationship(
+        back_populates="calendar",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     follower_links: Mapped[list["CalendarFollower"]] = relationship(
         back_populates="calendar",

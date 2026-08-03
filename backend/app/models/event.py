@@ -58,13 +58,14 @@ class Event(Base):
     )
     organizer: Mapped["User"] = relationship(back_populates="events")
 
-    # Nullable during rollout so existing events keep working; the goal is for
-    # every event to belong to a calendar (owned by the organizer).
-    calendar_id: Mapped[int | None] = mapped_column(
-        ForeignKey("calendars.id", ondelete="SET NULL"),
+    # Every event belongs to a calendar (owned by the organizer). Deleting the
+    # calendar cascades to its events, since events can't be orphaned.
+    calendar_id: Mapped[int] = mapped_column(
+        ForeignKey("calendars.id", ondelete="CASCADE"),
         index=True,
+        nullable=False,
     )
-    calendar: Mapped["Calendar | None"] = relationship(back_populates="events")
+    calendar: Mapped["Calendar"] = relationship(back_populates="events")
 
     ticket_types: Mapped[list["TicketType"]] = relationship(
         back_populates="event",

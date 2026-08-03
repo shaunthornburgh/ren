@@ -46,6 +46,18 @@ class Settings(BaseSettings):
     # ISO 4217 currency for Checkout line items (lowercase, e.g. "usd", "gbp").
     STRIPE_CURRENCY: str = "usd"
 
+    # Email / SMTP. When EMAIL_ENABLED is false (or SMTP_HOST is blank) emails
+    # are written to the log instead of sent — a "console backend" for local
+    # dev. Point these at a real SMTP relay (Mailgun/Resend SMTP, etc.) in prod.
+    EMAIL_ENABLED: bool = False
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_TLS: bool = True
+    EMAILS_FROM_EMAIL: str = "no-reply@ren.local"
+    EMAILS_FROM_NAME: str = "Ren"
+
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: str | list[str]) -> list[str]:
