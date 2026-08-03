@@ -118,6 +118,33 @@ export interface OrderItemCreate {
   quantity: number
 }
 
+// ---- Agenda / Schedule ----
+
+export interface AgendaItemRead {
+  id: number
+  event_id: number
+  start_time: string
+  end_time: string | null
+  title: string
+  description: string | null
+  speaker_name: string | null
+  location: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface AgendaItemCreate {
+  start_time: string
+  end_time?: string | null
+  title: string
+  description?: string | null
+  speaker_name?: string | null
+  location?: string | null
+  sort_order?: number
+}
+export type AgendaItemUpdate = Partial<AgendaItemCreate>
+
 // ---- Calendars ----
 
 export interface CalendarRead {

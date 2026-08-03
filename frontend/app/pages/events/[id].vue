@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type {
+  AgendaItemRead,
   CheckoutSessionRead,
   EventRead,
   OrderRead,
@@ -10,7 +11,7 @@ const route = useRoute()
 const router = useRouter()
 const { apiFetch } = useApi()
 const { isAuthenticated } = useAuth()
-const { formatDateTime, formatPrice } = useFormat()
+const { formatDate, formatDateTime, formatTime, formatPrice } = useFormat()
 
 const eventId = Number(route.params.id)
 
@@ -20,14 +21,26 @@ const EVENT_PLACEHOLDER =
 const { data, pending, error } = await useAsyncData(
   `event-${eventId}`,
   async () => {
-    const [event, ticketTypes] = await Promise.all([
+    const [event, ticketTypes, agenda] = await Promise.all([
       apiFetch<EventRead>(`/events/${eventId}`),
       apiFetch<TicketTypeRead[]>(`/events/${eventId}/ticket-types`),
+      apiFetch<AgendaItemRead[]>(`/events/${eventId}/agenda`),
     ])
-    return { event, ticketTypes }
+    return { event, ticketTypes, agenda }
   },
   { server: false },
 )
+
+// Group agenda items by calendar day so multi-day schedules read clearly.
+const agendaByDay = computed(() => {
+  const groups = new Map<string, AgendaItemRead[]>()
+  for (const item of data.value?.agenda ?? []) {
+    const day = formatDate(item.start_time)
+    if (!groups.has(day)) groups.set(day, [])
+    groups.get(day)!.push(item)
+  }
+  return Array.from(groups, ([day, items]) => ({ day, items }))
+})
 
 // Per-ticket-type selected quantity, keyed by id.
 const quantities = reactive<Record<number, number>>({})
@@ -133,7 +146,8 @@ async function buy() {
         </NuxtLink>
       </div>
 
-      <div v-else class="grid gap-10 lg:grid-cols-5">
+      <div v-else class="space-y-14">
+        <div class="grid gap-10 lg:grid-cols-5">
         <!-- image -->
         <div class="lg:col-span-3">
           <div class="relative flex items-center justify-center p-5 rounded-2xl bg-gray-100 lg:sticky top-10 sm:p-10 dark:bg-gray-800">
@@ -249,6 +263,48 @@ async function buy() {
                 <span v-else>Buy {{ totalCount }} ticket{{ totalCount === 1 ? '' : 's' }}</span>
               </button>
             </div>
+          </div>
+        </div>
+        </div>
+
+        <!-- agenda / schedule -->
+        <div v-if="agendaByDay.length">
+          <h2 class="text-3xl font-bold">Schedule</h2>
+
+          <div v-for="group in agendaByDay" :key="group.day" class="mt-8">
+            <h3 v-if="agendaByDay.length > 1" class="mb-4 text-lg font-semibold text-purple-600 dark:text-purple-400">
+              {{ group.day }}
+            </h3>
+
+            <ol class="space-y-4">
+              <li
+                v-for="item in group.items"
+                :key="item.id"
+                class="flex flex-col gap-4 p-5 border rounded-2xl sm:flex-row dark:border-gray-800"
+              >
+                <!-- time column -->
+                <div class="flex-shrink-0 sm:w-32">
+                  <div class="font-bold text-purple-600 dark:text-purple-400">{{ formatTime(item.start_time) }}</div>
+                  <div v-if="item.end_time" class="text-sm text-gray-400">until {{ formatTime(item.end_time) }}</div>
+                </div>
+
+                <!-- content -->
+                <div class="flex-1 min-w-0">
+                  <h4 class="text-lg font-semibold">{{ item.title }}</h4>
+                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
+                    <span v-if="item.speaker_name" class="inline-flex items-center gap-1.5">
+                      <i class="bx bx-user"></i>{{ item.speaker_name }}
+                    </span>
+                    <span v-if="item.location" class="inline-flex items-center gap-1.5">
+                      <i class="bx bx-map-pin"></i>{{ item.location }}
+                    </span>
+                  </div>
+                  <p v-if="item.description" class="mt-2 text-gray-600 dark:text-gray-400">
+                    {{ item.description }}
+                  </p>
+                </div>
+              </li>
+            </ol>
           </div>
         </div>
       </div>

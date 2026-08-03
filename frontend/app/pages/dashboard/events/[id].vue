@@ -84,6 +84,11 @@ async function updateEvent(payload: EventCreate) {
         <div class="pt-10 border-t dark:border-gray-800">
           <TicketTypeManager :event-id="eventId" />
         </div>
+
+        <!-- manage agenda / schedule -->
+        <div class="pt-10 border-t dark:border-gray-800">
+          <AgendaManager :event-id="eventId" />
+        </div>
       </div>
     </div>
   </section>
