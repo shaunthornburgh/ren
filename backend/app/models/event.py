@@ -16,6 +16,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 if TYPE_CHECKING:
+    from app.models.agenda_item import AgendaItem
+    from app.models.calendar import Calendar
     from app.models.ticket_type import TicketType
     from app.models.user import User
 
@@ -56,7 +58,20 @@ class Event(Base):
     )
     organizer: Mapped["User"] = relationship(back_populates="events")
 
+    # Nullable during rollout so existing events keep working; the goal is for
+    # every event to belong to a calendar (owned by the organizer).
+    calendar_id: Mapped[int | None] = mapped_column(
+        ForeignKey("calendars.id", ondelete="SET NULL"),
+        index=True,
+    )
+    calendar: Mapped["Calendar | None"] = relationship(back_populates="events")
+
     ticket_types: Mapped[list["TicketType"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+    )
+
+    agenda_items: Mapped[list["AgendaItem"]] = relationship(
         back_populates="event",
         cascade="all, delete-orphan",
     )

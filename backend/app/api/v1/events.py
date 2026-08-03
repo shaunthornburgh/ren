@@ -37,6 +37,25 @@ def _get_owned_event(
     return event
 
 
+def _assert_calendar_owned(
+    calendar_id: int, db: Session, current_user: User
+) -> None:
+    """Ensure the caller may attach events to the given calendar."""
+    calendar = crud.calendar.get(db, id=calendar_id)
+    if calendar is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Calendar not found."
+        )
+    if (
+        calendar.owner_id != current_user.id
+        and current_user.role is not UserRole.ADMIN
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not own this calendar.",
+        )
+
+
 @router.post(
     "",
     response_model=EventRead,
@@ -49,8 +68,22 @@ def create_event(
         User, Depends(require_role(UserRole.ORGANIZER, UserRole.ADMIN))
     ],
 ) -> Event:
-    """Create a new event. Organizers (and admins) only."""
-    return crud.event.create(db, obj_in=event_in, organizer_id=current_user.id)
+    """Create a new event. Organizers (and admins) only.
+
+    If the event is created already published on a calendar, its followers are
+    notified.
+    """
+    if event_in.calendar_id is not None:
+        _assert_calendar_owned(event_in.calendar_id, db, current_user)
+    event = crud.event.create(
+        db, obj_in=event_in, organizer_id=current_user.id
+    )
+    if (
+        event.status is EventStatus.PUBLISHED
+        and event.calendar_id is not None
+    ):
+        crud.notification.notify_new_event(db, event=event)
+    return event
 
 
 @router.get("", response_model=list[EventRead])
@@ -108,6 +141,22 @@ def update_event(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> Event:
-    """Update an event. Owner (or admin) only."""
+    """Update an event. Owner (or admin) only.
+
+    When an event first transitions to *published* on a calendar, its
+    followers are notified.
+    """
     event = _get_owned_event(event_id, db, current_user)
-    return crud.event.update(db, db_obj=event, obj_in=event_in)
+    if event_in.calendar_id is not None:
+        _assert_calendar_owned(event_in.calendar_id, db, current_user)
+
+    was_published = event.status is EventStatus.PUBLISHED
+    event = crud.event.update(db, db_obj=event, obj_in=event_in)
+
+    if (
+        not was_published
+        and event.status is EventStatus.PUBLISHED
+        and event.calendar_id is not None
+    ):
+        crud.notification.notify_new_event(db, event=event)
+    return event

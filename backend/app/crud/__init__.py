@@ -1,3 +1,19 @@
-from app.crud import event, order, ticket_type, user
+from app.crud import (
+    agenda_item,
+    calendar,
+    event,
+    notification,
+    order,
+    ticket_type,
+    user,
+)
 
-__all__ = ["event", "order", "ticket_type", "user"]
+__all__ = [
+    "agenda_item",
+    "calendar",
+    "event",
+    "notification",
+    "order",
+    "ticket_type",
+    "user",
+]

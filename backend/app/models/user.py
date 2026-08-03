@@ -8,7 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 if TYPE_CHECKING:
+    from app.models.calendar import Calendar, CalendarFollower
     from app.models.event import Event
+    from app.models.notification import Notification
     from app.models.order import Order
     from app.models.ticket import Ticket
 
@@ -55,6 +57,18 @@ class User(Base):
         cascade="all, delete-orphan",
     )
     orders: Mapped[list["Order"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    calendars: Mapped[list["Calendar"]] = relationship(
+        back_populates="owner",
+        cascade="all, delete-orphan",
+    )
+    calendar_follows: Mapped[list["CalendarFollower"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    notifications: Mapped[list["Notification"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )

@@ -20,11 +20,19 @@ __all__ = [
     "get_db",
     "get_current_user",
     "get_current_active_user",
+    "get_current_user_optional",
     "require_role",
 ]
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_PREFIX}/auth/token"
+)
+
+# Like ``oauth2_scheme`` but doesn't 401 when the Authorization header is
+# absent — used by endpoints that behave differently for signed-in callers.
+oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_PREFIX}/auth/token",
+    auto_error=False,
 )
 
 _credentials_exc = HTTPException(
@@ -60,6 +68,26 @@ def get_current_active_user(
             status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
         )
     return current_user
+
+
+def get_current_user_optional(
+    token: Annotated[str | None, Depends(oauth2_scheme_optional)],
+    db: Annotated[Session, Depends(get_db)],
+) -> User | None:
+    """Resolve the current user if a valid token is present, else ``None``.
+
+    Never raises — anonymous callers simply get ``None``.
+    """
+    if not token:
+        return None
+    payload = decode_access_token(token)
+    if payload is None or (user_id := payload.get("sub")) is None:
+        return None
+    try:
+        user = crud.user.get(db, id=int(user_id))
+    except (TypeError, ValueError):
+        return None
+    return user if (user and user.is_active) else None
 
 
 def require_role(*roles: UserRole):

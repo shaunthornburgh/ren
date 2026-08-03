@@ -42,10 +42,16 @@ const totals = computed(() => {
           </h1>
           <p class="text-gray-500 dark:text-gray-400">Manage your events and ticket sales.</p>
         </div>
-        <NuxtLink
-          to="/dashboard/events/new"
-          class="inline-flex items-center px-5 py-2.5 font-semibold text-center text-white transition duration-200 bg-purple-600 rounded-full hover:bg-purple-700"
-        >+ Create event</NuxtLink>
+        <div class="flex gap-3">
+          <NuxtLink
+            to="/dashboard/calendars"
+            class="inline-flex items-center px-5 py-2.5 font-semibold text-center transition duration-200 border rounded-full hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+          >Calendars</NuxtLink>
+          <NuxtLink
+            to="/dashboard/events/new"
+            class="inline-flex items-center px-5 py-2.5 font-semibold text-center text-white transition duration-200 bg-purple-600 rounded-full hover:bg-purple-700"
+          >+ Create event</NuxtLink>
+        </div>
       </div>
 
       <!-- summary tiles -->

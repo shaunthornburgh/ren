@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import type { EventCreate, EventRead, EventStatus } from '~/types/api'
+import type {
+  CalendarRead,
+  EventCreate,
+  EventRead,
+  EventStatus,
+} from '~/types/api'
 
 const props = defineProps<{
   event?: EventRead | null
+  calendars?: CalendarRead[]
   submitting?: boolean
   error?: string
   submitLabel?: string
@@ -27,6 +33,7 @@ const form = reactive({
   location: props.event?.location ?? '',
   image_url: props.event?.image_url ?? '',
   capacity: props.event?.capacity ?? null,
+  calendar_id: props.event?.calendar_id ?? null,
   status: (props.event?.status ?? 'draft') as EventStatus,
 })
 
@@ -63,6 +70,7 @@ function onSubmit() {
     location: form.location.trim() || null,
     image_url: form.image_url.trim() || null,
     capacity: form.capacity === null || form.capacity === ('' as any) ? null : Number(form.capacity),
+    calendar_id: form.calendar_id === null || form.calendar_id === ('' as any) ? null : Number(form.calendar_id),
     status: form.status,
   })
 }
@@ -99,6 +107,18 @@ function onSubmit() {
     <div class="space-y-1.5">
       <label for="image" class="text-sm font-medium">Image URL</label>
       <input id="image" v-model="form.image_url" type="url" placeholder="https://…" :class="inputClass" />
+    </div>
+
+    <div class="space-y-1.5">
+      <label for="calendar" class="text-sm font-medium">Calendar</label>
+      <select id="calendar" v-model="form.calendar_id" :class="inputClass">
+        <option :value="null">No calendar</option>
+        <option v-for="c in calendars ?? []" :key="c.id" :value="c.id">{{ c.name }}</option>
+      </select>
+      <p class="text-xs text-gray-400">
+        Publishing on a calendar notifies its followers.
+        <NuxtLink v-if="!(calendars ?? []).length" to="/dashboard/calendars/new" class="text-purple-600 hover:text-purple-700">Create one first →</NuxtLink>
+      </p>
     </div>
 
     <div class="grid gap-5 sm:grid-cols-2">

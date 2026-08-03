@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { EventCreate, EventRead } from '~/types/api'
+import type { CalendarRead, EventCreate, EventRead } from '~/types/api'
 
 definePageMeta({ middleware: 'organizer' })
 
@@ -12,6 +12,12 @@ const { data: event, pending, error } = await useAsyncData(
   `dashboard-event-${eventId}`,
   () => apiFetch<EventRead>(`/events/${eventId}`),
   { server: false },
+)
+
+const { data: calendars } = await useAsyncData(
+  'organizer-calendars-for-event-edit',
+  () => apiFetch<CalendarRead[]>('/calendars/me'),
+  { server: false, default: () => [] as CalendarRead[] },
 )
 
 const submitting = ref(false)
@@ -65,6 +71,7 @@ async function updateEvent(payload: EventCreate) {
           <div class="mt-6">
             <OrganizerEventForm
               :event="event"
+              :calendars="calendars"
               :submitting="submitting"
               :error="errorMsg"
               submit-label="Save changes"

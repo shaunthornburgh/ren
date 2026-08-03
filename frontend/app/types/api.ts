@@ -28,6 +28,7 @@ export interface EventRead {
   location: string | null
   image_url: string | null
   capacity: number | null
+  calendar_id: number | null
   status: EventStatus
   organizer_id: number
   created_at: string
@@ -96,6 +97,7 @@ export interface EventCreate {
   location?: string | null
   image_url?: string | null
   capacity?: number | null
+  calendar_id?: number | null
   status?: EventStatus
 }
 export type EventUpdate = Partial<EventCreate>
@@ -114,4 +116,62 @@ export type TicketTypeUpdate = Partial<TicketTypeCreate>
 export interface OrderItemCreate {
   ticket_type_id: number
   quantity: number
+}
+
+// ---- Calendars ----
+
+export interface CalendarRead {
+  id: number
+  name: string
+  slug: string
+  description: string | null
+  image_url: string | null
+  is_public: boolean
+  owner_id: number
+  follower_count: number
+  created_at: string
+  updated_at: string
+}
+
+// Public calendar page payload: calendar + upcoming events + caller's state.
+export interface CalendarWithEvents extends CalendarRead {
+  upcoming_events: EventRead[]
+  is_following: boolean
+}
+
+export interface CalendarCreate {
+  name: string
+  slug?: string | null
+  description?: string | null
+  image_url?: string | null
+  is_public?: boolean
+}
+export type CalendarUpdate = Partial<Omit<CalendarCreate, 'slug'>>
+
+export interface CalendarFollower {
+  user_id: number
+  email: string
+  full_name: string | null
+  followed_at: string
+}
+
+// Returned by the follow / unfollow endpoints.
+export interface FollowState {
+  following: boolean
+  follower_count: number
+}
+
+// ---- Notifications ----
+
+export type NotificationType = 'event_published'
+
+export interface NotificationRead {
+  id: number
+  type: NotificationType
+  title: string
+  message: string | null
+  event_id: number | null
+  calendar_id: number | null
+  is_read: boolean
+  created_at: string
 }
