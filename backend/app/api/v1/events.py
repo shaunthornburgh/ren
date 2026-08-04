@@ -4,14 +4,18 @@ from fastapi import (
     APIRouter,
     BackgroundTasks,
     Depends,
+    File,
     HTTPException,
     Query,
+    UploadFile,
     status,
 )
 from sqlalchemy.orm import Session
 
 from app import crud
 from app.core import email
+from app.core.config import settings
+from app.core.uploads import remove_local_upload, save_image_upload
 from app.deps import (
     get_current_active_user,
     get_current_user_optional,
@@ -162,6 +166,37 @@ def can_manage_event(
         db, event=event, user=current_user
     )
     return {"can_manage": can_manage}
+
+
+@router.post("/{event_id}/image", response_model=EventRead)
+def upload_event_image(
+    event_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    file: Annotated[UploadFile, File()],
+) -> Event:
+    """Upload a header image (JPG/PNG/WebP, max 10 MB). Owner/manager only."""
+    event = _get_owned_event(event_id, db, current_user)
+    url = save_image_upload(
+        file=file, subdir="events", max_bytes=settings.MAX_EVENT_IMAGE_BYTES
+    )
+    # Replace any previous header image, then point the event at the new one.
+    remove_local_upload(event.image_url)
+    return crud.event.update(db, db_obj=event, obj_in=EventUpdate(image_url=url))
+
+
+@router.delete("/{event_id}/image", response_model=EventRead)
+def delete_event_image(
+    event_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> Event:
+    """Clear the event's header image. Owner/manager only."""
+    event = _get_owned_event(event_id, db, current_user)
+    remove_local_upload(event.image_url)
+    return crud.event.update(
+        db, db_obj=event, obj_in=EventUpdate(image_url=None)
+    )
 
 
 @router.get("/{event_id}/guests", response_model=list[GuestRead])

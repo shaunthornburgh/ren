@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     # object storage (S3/GCS) in production.
     UPLOAD_DIR: str = "uploads"
     MAX_AVATAR_BYTES: int = 5 * 1024 * 1024  # 5 MB
+    MAX_EVENT_IMAGE_BYTES: int = 10 * 1024 * 1024  # 10 MB
 
     # Stripe (test-mode keys for now). Loaded from the environment; never
     # commit real keys. STRIPE_WEBHOOK_SECRET is the signing secret shown when

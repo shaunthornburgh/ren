@@ -56,6 +56,12 @@ const submitting = ref(false)
 const errorMsg = ref('')
 const savedAt = ref(false)
 
+// The image upload/remove happens inside the form against its own endpoint;
+// keep our event copy in sync when it reports a change.
+function onEventUpdated(updated: EventRead) {
+  event.value = updated
+}
+
 async function updateEvent(payload: EventCreate) {
   errorMsg.value = ''
   savedAt.value = false
@@ -125,6 +131,7 @@ async function updateEvent(payload: EventCreate) {
                   :error="errorMsg"
                   submit-label="Save changes"
                   @submit="updateEvent"
+                  @updated="onEventUpdated"
                 />
               </div>
             </div>

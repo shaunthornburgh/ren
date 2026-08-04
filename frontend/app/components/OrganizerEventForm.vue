@@ -14,7 +14,12 @@ const props = defineProps<{
   submitLabel?: string
 }>()
 
-const emit = defineEmits<{ (e: 'submit', payload: EventCreate): void }>()
+const emit = defineEmits<{
+  (e: 'submit', payload: EventCreate): void
+  (e: 'updated', event: EventRead): void
+}>()
+
+const { apiFetch } = useApi()
 
 // Convert an ISO timestamp to the `YYYY-MM-DDTHH:mm` value a
 // datetime-local input expects (in the browser's local timezone).
@@ -31,7 +36,6 @@ const form = reactive({
   start_datetime: toLocalInput(props.event?.start_datetime),
   end_datetime: toLocalInput(props.event?.end_datetime),
   location: props.event?.location ?? '',
-  image_url: props.event?.image_url ?? '',
   capacity: props.event?.capacity ?? null,
   // Default to the event's calendar, else the organizer's first calendar.
   calendar_id: props.event?.calendar_id ?? props.calendars?.[0]?.id ?? null,
@@ -42,6 +46,100 @@ const form = reactive({
 const hasCalendars = computed(() => (props.calendars ?? []).length > 0)
 
 const localError = ref('')
+
+// --- header image upload (edit mode only — needs an existing event id) ---
+const isEdit = computed(() => !!props.event?.id)
+const imageUrl = ref<string | null>(props.event?.image_url ?? null)
+const previewOverride = ref<string | null>(null)
+const imgUploading = ref(false)
+const imgError = ref('')
+const imageInput = ref<HTMLInputElement | null>(null)
+const dragOver = ref(false)
+
+const ACCEPTED_IMAGE = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+
+const displayImage = computed(() => previewOverride.value || imageUrl.value)
+
+function pickImage() {
+  if (imgUploading.value) return
+  imgError.value = ''
+  imageInput.value?.click()
+}
+
+async function uploadFile(file: File) {
+  if (!props.event) return
+  imgError.value = ''
+  if (!ACCEPTED_IMAGE.includes(file.type)) {
+    imgError.value = 'Please choose a JPG, PNG, or WebP image.'
+    return
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    imgError.value = 'Image is too large (max 10 MB).'
+    return
+  }
+
+  previewOverride.value = URL.createObjectURL(file)
+  imgUploading.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const updated = await apiFetch<EventRead>(
+      `/events/${props.event.id}/image`,
+      { method: 'POST', body: fd },
+    )
+    imageUrl.value = updated.image_url
+    emit('updated', updated)
+  } catch (err: any) {
+    imgError.value =
+      err?.data?.detail?.toString() || 'Could not upload the image. Please try again.'
+  } finally {
+    if (previewOverride.value) URL.revokeObjectURL(previewOverride.value)
+    previewOverride.value = null
+    imgUploading.value = false
+  }
+}
+
+function onImageSelected(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (file) uploadFile(file)
+}
+
+function onDrop(e: DragEvent) {
+  dragOver.value = false
+  if (imgUploading.value) return
+  const file = e.dataTransfer?.files?.[0]
+  if (file) uploadFile(file)
+}
+
+function onDragOver() {
+  if (!imgUploading.value) dragOver.value = true
+}
+
+function onDragLeave() {
+  dragOver.value = false
+}
+
+async function removeImage() {
+  if (!props.event) return
+  imgError.value = ''
+  imgUploading.value = true
+  try {
+    const updated = await apiFetch<EventRead>(
+      `/events/${props.event.id}/image`,
+      { method: 'DELETE' },
+    )
+    imageUrl.value = updated.image_url
+    emit('updated', updated)
+  } catch (err: any) {
+    imgError.value =
+      err?.data?.detail?.toString() || 'Could not remove the image.'
+  } finally {
+    imgUploading.value = false
+  }
+}
 
 const statuses: { value: EventStatus; label: string }[] = [
   { value: 'draft', label: 'Draft' },
@@ -77,7 +175,6 @@ function onSubmit() {
     start_datetime: start.toISOString(),
     end_datetime: end.toISOString(),
     location: form.location.trim() || null,
-    image_url: form.image_url.trim() || null,
     capacity: form.capacity === null || form.capacity === ('' as any) ? null : Number(form.capacity),
     calendar_id: Number(form.calendar_id),
     status: form.status,
@@ -114,8 +211,69 @@ function onSubmit() {
     </div>
 
     <div class="space-y-1.5">
-      <label for="image" class="text-sm font-medium">Image URL</label>
-      <input id="image" v-model="form.image_url" type="url" placeholder="https://…" :class="inputClass" />
+      <span class="text-sm font-medium">Image</span>
+
+      <!-- edit mode: compact drag-and-drop / click upload -->
+      <div v-if="isEdit" class="space-y-2">
+        <div
+          class="flex items-center max-w-sm gap-4 p-3 transition duration-150 border-2 border-dashed cursor-pointer rounded-xl"
+          :class="dragOver
+            ? 'border-purple-500 bg-purple-50 dark:bg-gray-800'
+            : 'border-gray-200 hover:border-purple-400 dark:border-gray-700 dark:hover:border-purple-500'"
+          role="button"
+          tabindex="0"
+          @click="pickImage"
+          @keydown.enter.prevent="pickImage"
+          @dragenter.prevent="onDragOver"
+          @dragover.prevent="onDragOver"
+          @dragleave.prevent="onDragLeave"
+          @drop.prevent="onDrop"
+        >
+          <!-- compact thumbnail -->
+          <div class="relative flex items-center justify-center flex-shrink-0 w-20 h-20 overflow-hidden bg-gray-100 rounded-lg dark:bg-gray-900">
+            <img
+              v-if="displayImage"
+              :src="displayImage"
+              alt="Event image preview"
+              class="object-cover w-full h-full"
+              :class="{ 'opacity-60': imgUploading }"
+            />
+            <i v-else class="text-2xl text-gray-400 bx bx-image"></i>
+          </div>
+
+          <div class="min-w-0">
+            <p class="text-sm font-medium">
+              <span v-if="imgUploading">Uploading…</span>
+              <span v-else>
+                Drag &amp; drop, or
+                <span class="text-purple-600 dark:text-purple-400">click to upload</span>
+              </span>
+            </p>
+            <p class="mt-0.5 text-xs text-gray-400">JPG, PNG, or WebP · up to 10 MB</p>
+          </div>
+        </div>
+
+        <input
+          ref="imageInput"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          class="hidden"
+          @change="onImageSelected"
+        />
+
+        <button
+          v-if="imageUrl && !imgUploading"
+          type="button"
+          class="text-sm font-medium text-red-600 transition duration-200 hover:text-red-700 dark:text-red-400"
+          @click="removeImage"
+        >Remove image</button>
+        <p v-if="imgError" class="text-sm text-red-500">{{ imgError }}</p>
+      </div>
+
+      <!-- create mode: no event id yet, so upload after saving -->
+      <p v-else class="text-sm text-gray-400">
+        You can upload an image after saving the event.
+      </p>
     </div>
 
     <div class="space-y-1.5">

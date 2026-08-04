@@ -1,19 +1,11 @@
-import uuid
-from pathlib import Path
 from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    HTTPException,
-    UploadFile,
-    status,
-)
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app import crud
 from app.core.config import settings
+from app.core.uploads import remove_local_upload, save_image_upload
 from app.deps import get_current_active_user, get_db
 from app.models.user import User
 from app.schemas.event import EventRead
@@ -24,30 +16,6 @@ from app.schemas.user import (
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-# Accepted avatar content types → file extension.
-_AVATAR_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-}
-
-
-def _remove_local_avatar(url: str | None) -> None:
-    """Best-effort delete of a previously uploaded avatar file we own."""
-    if not url:
-        return
-    prefix = f"{settings.BACKEND_URL}/uploads/"
-    if not url.startswith(prefix):
-        return
-    rel = url[len(prefix):]
-    # Guard against path traversal; only touch files under UPLOAD_DIR.
-    if ".." in rel:
-        return
-    try:
-        (Path(settings.UPLOAD_DIR) / rel).unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 @router.get("/me", response_model=UserRead)
@@ -75,34 +43,11 @@ def upload_avatar(
     file: Annotated[UploadFile, File()],
 ) -> User:
     """Upload a new avatar image (JPG/PNG/WebP, max 5 MB) for the current user."""
-    ext = _AVATAR_TYPES.get(file.content_type or "")
-    if ext is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unsupported image type. Please upload a JPG, PNG, or WebP.",
-        )
-
-    # Read up to the limit + 1 byte so we can detect oversize without loading
-    # arbitrarily large files into memory.
-    contents = file.file.read(settings.MAX_AVATAR_BYTES + 1)
-    if not contents:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="The file is empty."
-        )
-    if len(contents) > settings.MAX_AVATAR_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Image is too large (max 5 MB).",
-        )
-
-    avatars_dir = Path(settings.UPLOAD_DIR) / "avatars"
-    avatars_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"{uuid.uuid4().hex}{ext}"
-    (avatars_dir / filename).write_bytes(contents)
-
+    url = save_image_upload(
+        file=file, subdir="avatars", max_bytes=settings.MAX_AVATAR_BYTES
+    )
     # Clean up the previous avatar, then point the user at the new one.
-    _remove_local_avatar(current_user.avatar_url)
-    url = f"{settings.BACKEND_URL}/uploads/avatars/{filename}"
+    remove_local_upload(current_user.avatar_url)
     return crud.user.update_profile(
         db, db_obj=current_user, obj_in=UserProfileUpdate(avatar_url=url)
     )
@@ -114,7 +59,7 @@ def delete_avatar(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> User:
     """Remove the current user's avatar."""
-    _remove_local_avatar(current_user.avatar_url)
+    remove_local_upload(current_user.avatar_url)
     current_user.avatar_url = None
     db.add(current_user)
     db.commit()
