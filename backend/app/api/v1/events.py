@@ -30,6 +30,7 @@ from app.schemas.event import (
     EventRead,
     EventUpdate,
     OrganizerEventRead,
+    validate_location,
 )
 from app.schemas.guest import GuestRead, GuestTicketLine
 from app.schemas.registration_question import RegistrationAnswerRead
@@ -61,6 +62,61 @@ def _assert_calendar_owned(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not own this calendar.",
         )
+
+
+def _apply_location_update(event: Event, event_in: EventUpdate) -> None:
+    """Validate a partial location change against the event's current state.
+
+    The online/in-person rules span four fields, so a payload that touches any
+    one of them is checked against the merged result rather than in isolation.
+    Untouched events are left alone — rows predating this split may have no
+    coordinates, and an unrelated edit (a title, a status) shouldn't fail on
+    that. The normalised values are written back onto ``event_in`` so the CRUD
+    update persists them.
+    """
+    fields = {"is_online", "location", "lat", "lng"}
+    touched = fields & event_in.model_fields_set
+    if not touched:
+        return
+
+    merged = {
+        field: (
+            getattr(event_in, field)
+            if field in touched
+            else getattr(event, field)
+        )
+        for field in fields
+    }
+    # Coordinates belong to one specific place, so they can't be inherited
+    # across a change of mode or of address — that would leave the map pinned
+    # somewhere the event no longer is. Drop them and let validation demand a
+    # fresh pair.
+    moved = (
+        "is_online" in touched and merged["is_online"] != event.is_online
+    ) or ("location" in touched and merged["location"] != event.location)
+    if moved:
+        for field in ("lat", "lng"):
+            if field not in touched:
+                merged[field] = None
+
+    try:
+        location, lat, lng = validate_location(
+            is_online=bool(merged["is_online"]),
+            location=merged["location"],
+            lat=merged["lat"],
+            lng=merged["lng"],
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+    event_in.location = location
+    event_in.lat = lat
+    event_in.lng = lng
+    event_in.is_online = bool(merged["is_online"])
+    event_in.model_fields_set.update(fields)
 
 
 def _notify_followers(
@@ -268,6 +324,8 @@ def update_event(
                 detail="calendar_id cannot be null.",
             )
         _assert_calendar_owned(event_in.calendar_id, db, current_user)
+
+    _apply_location_update(event, event_in)
 
     was_published = event.status is EventStatus.PUBLISHED
     event = crud.event.update(db, db_obj=event, obj_in=event_in)

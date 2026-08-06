@@ -243,14 +243,40 @@ async function buy() {
                 <div class="font-semibold">{{ formatDateTime(data.event.end_datetime) }}</div>
               </div>
             </div>
-            <div class="flex items-center space-x-3">
+            <!-- online: name the format and link straight to the room -->
+            <div v-if="data.event.is_online" class="flex items-center space-x-3">
               <span class="flex items-center justify-center w-10 h-10 text-purple-600 rounded-full bg-purple-50 dark:bg-gray-800 dark:text-purple-400">
-                <i class="text-xl bx bx-map"></i>
+                <i class="text-xl bx bx-video"></i>
               </span>
-              <div>
-                <div class="text-sm text-gray-400">Venue</div>
-                <div class="font-semibold">{{ data.event.location || 'To be announced' }}</div>
+              <div class="min-w-0">
+                <div class="text-sm text-gray-400">Where</div>
+                <div class="font-semibold">Online event</div>
+                <a
+                  v-if="data.event.location"
+                  :href="data.event.location"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-sm font-medium text-purple-600 break-all hover:underline dark:text-purple-400"
+                >{{ data.event.location }}</a>
               </div>
+            </div>
+
+            <!-- in person: address, plus a map marker when we have coordinates -->
+            <div v-else class="space-y-3">
+              <div class="flex items-center space-x-3">
+                <span class="flex items-center justify-center w-10 h-10 text-purple-600 rounded-full bg-purple-50 dark:bg-gray-800 dark:text-purple-400">
+                  <i class="text-xl bx bx-map"></i>
+                </span>
+                <div>
+                  <div class="text-sm text-gray-400">Where</div>
+                  <div class="font-semibold">{{ data.event.location || 'To be announced' }}</div>
+                </div>
+              </div>
+              <EventMap
+                :lat="data.event.lat"
+                :lng="data.event.lng"
+                :label="data.event.location"
+              />
             </div>
           </div>
 

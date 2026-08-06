@@ -118,10 +118,10 @@ async function updateEvent(payload: EventCreate) {
         <div class="mt-8">
           <!-- Overview -->
           <div v-show="activeTab === 'overview'" class="space-y-12">
-            <div class="space-y-4">
-              <h2 class="text-2xl font-bold">Edit Event Details</h2>
-              <div class="p-5 space-y-4 border rounded-2xl bg-gray-50 dark:bg-gray-800/40 dark:border-gray-800">
-                <p v-if="savedAt" class="p-3 text-sm text-green-700 rounded-lg bg-green-100 dark:bg-green-900 dark:text-green-300">
+            <div class="space-y-3">
+              <h2 class="text-xl font-bold">Event details</h2>
+              <div class="p-4 space-y-3 border rounded-2xl bg-gray-50 dark:bg-gray-800/40 dark:border-gray-800">
+                <p v-if="savedAt" class="p-2.5 text-sm text-green-700 rounded-lg bg-green-100 dark:bg-green-900 dark:text-green-300">
                   Changes saved.
                 </p>
                 <OrganizerEventForm
@@ -129,6 +129,7 @@ async function updateEvent(payload: EventCreate) {
                   :calendars="calendars"
                   :submitting="submitting"
                   :error="errorMsg"
+                  click-to-edit
                   submit-label="Save changes"
                   @submit="updateEvent"
                   @updated="onEventUpdated"

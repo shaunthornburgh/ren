@@ -39,8 +39,11 @@ const image = computed(() => props.event.image_url || EVENT_PLACEHOLDER)
       </div>
       <div class="self-stretch border-l dark:border-gray-700"></div>
       <div class="flex-1 min-w-0 text-right">
-        <div class="font-medium text-gray-500">Venue</div>
-        <div class="font-bold truncate">{{ event.location || 'TBA' }}</div>
+        <div class="font-medium text-gray-500">Where</div>
+        <!-- an online event's location is a URL — say "Online" instead -->
+        <div class="font-bold truncate">
+          {{ event.is_online ? 'Online' : event.location || 'TBA' }}
+        </div>
       </div>
     </div>
   </div>

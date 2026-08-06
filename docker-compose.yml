@@ -41,6 +41,8 @@ services:
     environment:
       - NUXT_HOST=0.0.0.0
       - NUXT_PORT=3000
+      # Browser-side Google Maps key, interpolated from the root .env.
+      - NUXT_PUBLIC_GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
     depends_on:
       - backend
     volumes:

@@ -43,7 +43,12 @@ export interface EventRead {
   description: string | null
   start_datetime: string
   end_datetime: string
+  // Formatted address when in person, joining URL when online.
   location: string | null
+  is_online: boolean
+  // Coordinates of the selected Google place; null for online events.
+  lat: number | null
+  lng: number | null
   image_url: string | null
   capacity: number | null
   calendar_id: number
@@ -113,6 +118,9 @@ export interface EventCreate {
   start_datetime: string
   end_datetime: string
   location?: string | null
+  is_online?: boolean
+  lat?: number | null
+  lng?: number | null
   image_url?: string | null
   capacity?: number | null
   calendar_id: number

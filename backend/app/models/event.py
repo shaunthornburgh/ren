@@ -3,13 +3,16 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Integer,
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,7 +49,20 @@ class Event(Base):
     end_datetime: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
-    location: Mapped[str | None] = mapped_column(String(255))
+    # Where the event happens. One field for both modes: a Google-formatted
+    # address when in person, or the joining URL when online. Long enough to
+    # hold a meeting link with query parameters.
+    location: Mapped[str | None] = mapped_column(String(512))
+    is_online: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False,
+    )
+    # Coordinates of the selected Google place. Always NULL for online events.
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+
     image_url: Mapped[str | None] = mapped_column(String(512))
     capacity: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[EventStatus] = mapped_column(

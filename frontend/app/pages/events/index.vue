@@ -21,7 +21,8 @@ const filtered = computed(() => {
     const matchesText =
       !q ||
       e.title.toLowerCase().includes(q) ||
-      (e.location ?? '').toLowerCase().includes(q)
+      // Online events store a URL in `location`, so match on the word instead.
+      (e.is_online ? 'online' : (e.location ?? '').toLowerCase()).includes(q)
     const start = new Date(e.start_datetime)
     const matchesTab =
       tab.value === 'all' ||
@@ -47,7 +48,7 @@ const tabs = [
           <input
             v-model="search"
             type="text"
-            placeholder="Search events by name or venue..."
+            placeholder="Search events by name or location..."
             class="w-full px-12 pr-16 h-[60px] border border-white rounded-full placeholder-gray-400 shadow focus:outline-none focus:ring-2 focus:border-purple-600 md:h-[80px] md:text-xl dark:bg-gray-800 dark:border-gray-800"
           />
           <span class="flex justify-center items-center w-7 h-[50px] absolute left-4 top-[5px] text-gray-400 md:h-[60px] md:top-[10px]">
