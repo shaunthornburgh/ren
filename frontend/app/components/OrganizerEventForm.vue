@@ -439,11 +439,11 @@ function onSubmit() {
       </div>
     </div>
 
-    <div class="space-y-2">
-      <span class="text-sm font-medium">Location</span>
+    <div>
+      <span class="block text-sm font-medium">Location</span>
 
       <!-- mode toggle: one location, two shapes -->
-      <div class="inline-flex p-1 rounded-full bg-gray-100 dark:bg-gray-800">
+      <div class="inline-flex p-1 mt-2 rounded-full bg-gray-100 dark:bg-gray-800">
         <button
           v-for="mode in [
             { online: false, label: 'In person', icon: 'bx-map' },
@@ -463,7 +463,7 @@ function onSubmit() {
       </div>
 
       <!-- online: a single URL field -->
-      <div v-if="form.is_online" class="space-y-1">
+      <div v-if="form.is_online" class="mt-3 space-y-1.5">
         <input
           id="location"
           v-model="form.location"
@@ -481,6 +481,7 @@ function onSubmit() {
       <PlaceAutocomplete
         v-else
         v-model="form.location"
+        class="mt-3"
         :has-coords="form.lat !== null && form.lng !== null"
         placeholder="Search for an address or venue…"
         :input-class="inputClass"
