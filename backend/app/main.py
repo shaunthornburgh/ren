@@ -11,6 +11,7 @@ from app.api.v1 import (
     agenda,
     auth,
     calendars,
+    check_in,
     events,
     faq,
     hosts,
@@ -95,3 +96,4 @@ app.include_router(tickets.router, prefix=settings.API_V1_PREFIX)
 app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 app.include_router(orders.router, prefix=settings.API_V1_PREFIX)
 app.include_router(payments.router, prefix=settings.API_V1_PREFIX)
+app.include_router(check_in.router, prefix=settings.API_V1_PREFIX)

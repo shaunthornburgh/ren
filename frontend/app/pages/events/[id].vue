@@ -2,6 +2,7 @@
 import type {
   AgendaItemRead,
   CheckoutSessionRead,
+  EventAccessRead,
   EventRead,
   FaqItemRead,
   OrderRead,
@@ -38,21 +39,19 @@ const { data, pending, error } = await useAsyncData(
   { server: false },
 )
 
-// Whether the current user may manage this event (drives the Manage link).
-// Isolated + fail-safe so it never breaks the public page for anyone.
-const { data: canManage } = await useAsyncData(
+// What the current user may do with this event (drives the Manage and
+// Check-in links). Isolated + fail-safe so it never breaks the public page.
+const noAccess: EventAccessRead = { can_manage: false, can_check_in: false }
+const { data: access } = await useAsyncData(
   `event-${eventId}-can-manage`,
   async () => {
     try {
-      const res = await apiFetch<{ can_manage: boolean }>(
-        `/events/${eventId}/can-manage`,
-      )
-      return res.can_manage
+      return await apiFetch<EventAccessRead>(`/events/${eventId}/can-manage`)
     } catch {
-      return false
+      return noAccess
     }
   },
-  { server: false, default: () => false },
+  { server: false, default: () => noAccess },
 )
 
 // Registration answers keyed by question id.
@@ -207,14 +206,23 @@ async function buy() {
 
         <!-- details -->
         <div class="lg:col-span-2">
-          <!-- manage link (only for users who can manage this event) -->
-          <NuxtLink
-            v-if="canManage"
-            :to="`/dashboard/events/${data.event.id}`"
-            class="inline-flex items-center gap-1.5 px-4 py-1.5 mb-5 text-sm font-semibold text-purple-600 transition duration-200 border rounded-full border-purple-200 hover:bg-purple-50 dark:border-gray-700 dark:text-purple-400 dark:hover:bg-gray-800"
-          >
-            <i class="bx bx-cog"></i> Manage event
-          </NuxtLink>
+          <!-- manage / check-in links (only for users with that access) -->
+          <div v-if="access.can_manage || access.can_check_in" class="flex flex-wrap gap-2 mb-5">
+            <NuxtLink
+              v-if="access.can_manage"
+              :to="`/dashboard/events/${data.event.id}`"
+              class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-purple-600 transition duration-200 border rounded-full border-purple-200 hover:bg-purple-50 dark:border-gray-700 dark:text-purple-400 dark:hover:bg-gray-800"
+            >
+              <i class="bx bx-cog"></i> Manage event
+            </NuxtLink>
+            <NuxtLink
+              v-if="access.can_check_in"
+              :to="`/dashboard/events/${data.event.id}/check-in`"
+              class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-purple-600 transition duration-200 border rounded-full border-purple-200 hover:bg-purple-50 dark:border-gray-700 dark:text-purple-400 dark:hover:bg-gray-800"
+            >
+              <i class="bx bx-qr-scan"></i> Check-in
+            </NuxtLink>
+          </div>
 
           <div class="space-y-5">
             <h1 class="text-4xl font-bold">{{ data.event.title }}</h1>

@@ -5,7 +5,7 @@ definePageMeta({ middleware: 'auth' })
 
 const { apiFetch } = useApi()
 const { user } = useAuth()
-const { formatDateTime, formatPrice } = useFormat()
+const { formatDateTime, formatPrice, formatTicketCode } = useFormat()
 const route = useRoute()
 const router = useRouter()
 
@@ -161,19 +161,40 @@ async function completePayment(order: OrderRead) {
             </div>
           </div>
 
-          <!-- issued tickets (paid orders) -->
+          <!-- issued tickets (paid orders): QR for check-in at the door -->
           <div v-if="order.tickets.length" class="mt-5">
-            <div class="mb-2 text-sm font-medium text-gray-500">Your tickets</div>
-            <div class="flex flex-wrap gap-2">
-              <span
+            <div class="mb-3 text-sm font-medium text-gray-500">Your tickets</div>
+            <div class="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+              <div
                 v-for="ticket in order.tickets"
                 :key="ticket.id"
-                class="inline-flex items-center px-3 py-1.5 space-x-2 text-sm font-medium rounded-lg bg-purple-50 text-purple-700 dark:bg-gray-800 dark:text-purple-300"
+                class="flex flex-col items-center p-3 text-center border rounded-2xl bg-purple-50 border-purple-100 dark:bg-gray-800/60 dark:border-gray-800"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>
-                <span>Ticket #{{ ticket.id }}</span>
-              </span>
+                <div class="relative w-full max-w-[10rem]">
+                  <TicketQrCode
+                    :value="ticket.code"
+                    :class="{ 'opacity-20': ticket.status !== 'valid' }"
+                  />
+                  <span
+                    v-if="ticket.status !== 'valid'"
+                    class="absolute px-3 py-1 text-xs font-semibold uppercase -translate-x-1/2 -translate-y-1/2 rounded-full top-1/2 left-1/2"
+                    :class="ticket.status === 'used'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-600 text-white'"
+                  >{{ ticket.status === 'used' ? 'Checked in' : 'Cancelled' }}</span>
+                </div>
+                <div class="mt-2 font-mono text-sm font-semibold tracking-wider text-purple-700 dark:text-purple-300">
+                  {{ formatTicketCode(ticket.code) }}
+                </div>
+                <div class="text-xs text-gray-500">
+                  <template v-if="ticket.status === 'used' && ticket.checked_in_at">
+                    {{ formatDateTime(ticket.checked_in_at) }}
+                  </template>
+                  <template v-else>Ticket #{{ ticket.id }}</template>
+                </div>
+              </div>
             </div>
+            <p class="mt-3 text-xs text-gray-400">Show a QR code at the door to check in — one per guest.</p>
           </div>
 
           <!-- pending: prompt to pay -->

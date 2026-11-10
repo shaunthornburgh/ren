@@ -120,6 +120,24 @@ def can_manage(db: Session, *, event: Event, user: User) -> bool:
     return host is not None
 
 
+def can_check_in(db: Session, *, event: Event, user: User) -> bool:
+    """Whether ``user`` may check guests in to ``event``.
+
+    Everyone who can manage the event, plus any accepted host (of either role)
+    — door staff are typically listed as hosts without full manager access.
+    """
+    if can_manage(db, event=event, user=user):
+        return True
+    host = db.scalar(
+        select(EventHost.id).where(
+            EventHost.event_id == event.id,
+            EventHost.user_id == user.id,
+            EventHost.status == HostStatus.ACCEPTED,
+        )
+    )
+    return host is not None
+
+
 def link_pending_for_user(db: Session, *, user: User) -> int:
     """Link any pending host invites matching a user's email to their account.
 

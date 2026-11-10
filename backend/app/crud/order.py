@@ -10,7 +10,7 @@ from app.models.registration_question import (
     RegistrationAnswer,
     RegistrationQuestion,
 )
-from app.models.ticket import Ticket, TicketStatus
+from app.models.ticket import Ticket, TicketStatus, generate_ticket_code
 from app.models.ticket_type import TicketType
 from app.models.user import User
 from app.schemas.order import OrderCreate
@@ -261,6 +261,7 @@ def fulfill(
                     ticket_type_id=item.ticket_type_id,
                     owner_id=order.user_id,
                     status=TicketStatus.VALID,
+                    code=generate_ticket_code(),
                 )
                 for _ in range(item.quantity)
             )

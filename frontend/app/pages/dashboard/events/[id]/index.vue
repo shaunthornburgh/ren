@@ -97,7 +97,13 @@ async function updateEvent(payload: EventCreate) {
         <!-- header -->
         <div class="flex items-center justify-between mt-3">
           <h1 class="text-3xl font-bold truncate">{{ event.title }}</h1>
-          <NuxtLink :to="`/events/${event.id}`" class="flex-shrink-0 text-sm text-purple-600 hover:text-purple-700">View public page →</NuxtLink>
+          <div class="flex items-center flex-shrink-0 gap-4">
+            <NuxtLink :to="`/events/${event.id}`" class="text-sm text-purple-600 hover:text-purple-700">View public page →</NuxtLink>
+            <NuxtLink
+              :to="`/dashboard/events/${event.id}/check-in`"
+              class="px-4 py-2 text-sm font-semibold text-white transition duration-200 bg-purple-600 rounded-full hover:bg-purple-700"
+            >Check-in</NuxtLink>
+          </div>
         </div>
 
         <!-- tab nav -->

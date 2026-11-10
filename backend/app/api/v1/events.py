@@ -209,19 +209,28 @@ def can_manage_event(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User | None, Depends(get_current_user_optional)],
 ) -> dict:
-    """Whether the caller may manage this event (for showing a Manage link).
+    """What the caller may do with this event (drives the public page's
+    Manage and Check-in links).
 
-    Public: anonymous callers simply get ``false``. Never 401s.
+    ``can_check_in`` follows the same rules as ``POST /check-in``: managers
+    plus accepted hosts of either role. Public: anonymous callers get
+    ``false`` for both. Never 401s.
     """
     event = crud.event.get(db, id=event_id)
     if event is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Event not found."
         )
-    can_manage = current_user is not None and crud.event_host.can_manage(
-        db, event=event, user=current_user
-    )
-    return {"can_manage": can_manage}
+    if current_user is None:
+        return {"can_manage": False, "can_check_in": False}
+    return {
+        "can_manage": crud.event_host.can_manage(
+            db, event=event, user=current_user
+        ),
+        "can_check_in": crud.event_host.can_check_in(
+            db, event=event, user=current_user
+        ),
+    }
 
 
 @router.post("/{event_id}/image", response_model=EventRead)

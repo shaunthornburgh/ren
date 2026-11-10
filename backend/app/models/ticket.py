@@ -1,8 +1,10 @@
 import enum
+import re
+import secrets
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, func
+from sqlalchemy import DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -21,6 +23,26 @@ class TicketStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+# Crockford base32: no I, L, O or U, so codes survive being read aloud or
+# typed by hand at the door. 12 chars = 60 bits of randomness.
+TICKET_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+TICKET_CODE_LENGTH = 12
+
+
+def generate_ticket_code() -> str:
+    """A random, unguessable ticket code (e.g. ``7K3QX9MZ2B4H``)."""
+    return "".join(
+        secrets.choice(TICKET_CODE_ALPHABET) for _ in range(TICKET_CODE_LENGTH)
+    )
+
+
+def normalize_ticket_code(raw: str) -> str:
+    """Canonicalise user-entered code: uppercase, drop separators, and map the
+    look-alike letters Crockford excludes (O→0, I/L→1)."""
+    code = re.sub(r"[^0-9A-Za-z]", "", raw).upper()
+    return code.translate(str.maketrans("OIL", "011"))
+
+
 class Ticket(Base):
     """A single ticket owned by a user, issued as part of an order."""
 
@@ -31,6 +53,17 @@ class Ticket(Base):
         Enum(TicketStatus, name="ticket_status"),
         default=TicketStatus.VALID,
         nullable=False,
+    )
+    # Printed on / encoded in the ticket's QR code and presented at check-in.
+    code: Mapped[str] = mapped_column(
+        String(TICKET_CODE_LENGTH),
+        unique=True,
+        index=True,
+        nullable=False,
+        default=generate_ticket_code,
+    )
+    checked_in_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
     )
 
     ticket_type_id: Mapped[int] = mapped_column(

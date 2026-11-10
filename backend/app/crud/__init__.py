@@ -8,6 +8,7 @@ from app.crud import (
     notification,
     order,
     registration_question,
+    ticket,
     ticket_type,
     user,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "notification",
     "order",
     "registration_question",
+    "ticket",
     "ticket_type",
     "user",
 ]

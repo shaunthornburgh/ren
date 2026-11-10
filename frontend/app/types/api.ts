@@ -72,12 +72,51 @@ export interface TicketTypeRead {
 
 export interface TicketRead {
   id: number
+  code: string // check-in code, encoded in the ticket's QR
   status: TicketStatus
   ticket_type_id: number
   owner_id: number
   order_id: number
+  checked_in_at: string | null
   created_at: string
   updated_at: string
+}
+
+// ---- Check-in ----
+
+export interface CheckInGuest {
+  user_id: number
+  email: string
+  full_name: string | null
+}
+
+export interface CheckInResult {
+  ticket_id: number
+  code: string
+  status: TicketStatus
+  checked_in_at: string | null
+  ticket_type_name: string
+  event_id: number
+  event_title: string
+  guest: CheckInGuest
+}
+
+// `detail` of a 409 from POST /check-in (already used / cancelled).
+export interface CheckInConflict {
+  message: string
+  reason: 'already_used' | 'cancelled'
+  ticket: CheckInResult
+}
+
+// GET /events/{id}/can-manage — what the caller may do with an event.
+export interface EventAccessRead {
+  can_manage: boolean
+  can_check_in: boolean
+}
+
+export interface CheckInStats {
+  checked_in: number
+  total: number
 }
 
 export interface OrderItemRead {

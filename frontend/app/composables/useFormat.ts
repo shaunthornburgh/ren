@@ -43,5 +43,9 @@ export function useFormat() {
     return formatDate(iso)
   }
 
-  return { formatDate, formatDateTime, formatTime, formatPrice, timeAgo }
+  // Ticket check-in codes, grouped for reading aloud / typing: ABCD-EFGH-JKMN.
+  const formatTicketCode = (code: string): string =>
+    code.match(/.{1,4}/g)?.join('-') ?? code
+
+  return { formatDate, formatDateTime, formatTime, formatPrice, formatTicketCode, timeAgo }
 }
