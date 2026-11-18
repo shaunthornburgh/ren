@@ -1,0 +1,116 @@
+# Check guide - manual review guide
+
+**Context reuse:** Reuse any required file already loaded in project instructions or the current session. Read it again only if absent, changed, or exact current bytes or line references are needed.
+
+Where this sits in the workflow:
+
+    /implement or /complete  ->  [check guide]  ->  human review
+    (work exists)                (manual   (where to go,
+                                  path)     what to click)
+
+`/check` proves behavior from the agent side. `/check guide` gives the user a practical
+manual walkthrough: start this command, open this route, click these controls,
+expect this result, and watch for these failure signs.
+
+It is always read-only. Do not edit files, write activity state, update spec
+status, run checks or the app, install dependencies, commit, merge, push, or
+produce verification receipts. Reading files and git status is allowed. A guide
+never counts as acceptance evidence or proof that any check passed.
+
+The quality-gate config controls when another workflow generates this guide
+automatically. An explicit `/check guide` or `$check guide` request always runs.
+A generated guide never counts as evidence that the user performed the walkthrough.
+Try It Now is a user demonstration, not a replacement for tests, Verify, or
+`/check`.
+
+## Input
+
+Optional scope:
+
+- no argument: use the active feature or fix in
+  `blueprint/context/current-feature.md`
+- `latest`: use the most recent archive under `blueprint/history/features/` or
+  `blueprint/history/fixes/`
+- a step name or number: focus the guide on that current-feature step
+- a path, route, or command: include it as the main thing to try
+
+If there is no active feature and no useful archive, ask what change the user
+wants to try instead of guessing.
+
+## Step 1 - find the work to explain
+
+Read:
+
+- `AGENTS.md`
+- `blueprint/config.json`
+- `blueprint/context/current-feature.md`
+- latest files under `blueprint/history/features/` and
+  `blueprint/history/fixes/`, if the current feature is reset
+- git branch and working tree status
+
+For `latest`, use the most recent archive even when an active spec exists.
+Otherwise prefer the active spec. If `current-feature.md` is the reset stub, use
+the most recent archived feature or fix by filename or modification time and
+say that is what you used.
+
+Do not dump the spec. Pull out the routes, commands, UI surfaces, CLI commands,
+API endpoints, data states, and done-whens that matter for a human trying it.
+
+## Steps 2-4 - Try It Now
+
+Follow `../../check/reference/try-it-now.md` to fill missing details, classify
+the observation path, identify how to run the app, and write the Try It Now
+proof.
+
+## Step 5 - add deeper manual steps only when useful
+
+For an explicit guide request, or when `always` or `when-user-facing` selected a
+work item that benefits from more detail, follow Try It Now with these sections:
+
+1. **Start** - commands to run and where to run them.
+2. **Open** - URLs, screens, tabs, API endpoints, or CLI commands.
+3. **Do** - clicks, inputs, selections, or command arguments.
+4. **Expect** - visible result, output, response, state change, file, or lack of
+   error.
+5. **Watch For** - common wrong outcomes, console or network errors, stale data,
+   missing fields, bad empty states, layout issues, or safety warnings.
+
+Keep any deeper guide concrete. Prefer:
+
+    Open http://127.0.0.1:7788/api/snapshot
+    Expect a JSON object with `generated_at`, `services`, `projects`, and
+    `conflicts`.
+
+Avoid:
+
+    Check that the snapshot works.
+
+## Step 6 - include confidence and gaps
+
+End with:
+
+- **Best signal** - the one thing the user should try first.
+- **Optional deeper checks** - only if useful.
+- **Gaps** - anything the guide cannot know from the docs, such as missing route
+  names, seed data, credentials, or external services.
+
+If the feature is not user-visible but has a direct API, CLI, library, file, or
+state signal, use that. If no direct signal exists, say so and omit Try It Now.
+
+## Rules
+
+- Read-only only. Do not edit, commit, merge, push, install, or delete.
+- Do not run the app or verification commands in guide mode. If the user asks
+  you to try it for them, leave guide mode and explicitly route to `/check`
+  verification, following its activity and authorization rules.
+- Do not pretend a path is known when the spec does not say it. Give the best
+  supported path and label any remaining uncertainty. Do not emit Try It Now
+  when the uncertainty would make the command or expected result speculative.
+- Keep the guide short enough to follow while the app is open.
+- Match the project's commands from `AGENTS.md`.
+
+## Formatting
+
+Format the output to match the project's conventions in
+`blueprint/context/ai-interaction.md`: concise, scannable markdown, with numbered
+steps for the manual path and short bullets for warnings.
