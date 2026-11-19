@@ -28,6 +28,16 @@ Do not renumber completed features; their archived specs refer to those IDs.
 - [ ] 17. **Organizer analytics** - sales, revenue, and attendance reporting on the dashboard
 - [ ] 18. **Ticket emails** - email order confirmation with QR tickets after payment
 - [ ] 19. **Refunds and cancellations** - refund paid orders via Stripe and handle event cancellation for ticket holders
-
+- [ ] 20. **Forgot password** - password reset flow via email
+- [ ] 21. **Discount codes** - organizer-created promo codes that reduce ticket price at checkout
+- [ ] 22. **Waitlist** - allow attendees to join a waitlist when an event or ticket type is sold out
+- [ ] 23. **Payouts** - organizer payout tracking and status (or Stripe Connect onboarding if you go that route)
+- [ ] 24. **Invoices** - downloadable invoices/receipts for completed orders
+- [ ] 25. **Event privacy** - private/unlisted events (link-only or invite-only) vs public
+- [ ] 26. **Categories and tags** - tag events so search and discovery can filter by category
+- [ ] 27. **Profile social links** - add website and social links to user profiles
+- [ ] 28. **Add-ons** - optional purchasable extras (e.g. paddle board, merch) attached to an event or order
+- [ ] 29. **Invitations** - invite specific people to an event (email or link)
+- [ ] 30. **Message templates** - reusable message templates for organizer-to-guest emails
 > TODO (confirm): roadmap order is a guess; reorder 16-19 to the order you want
 > to build them.
