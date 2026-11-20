@@ -66,8 +66,18 @@ function resetForm() {
 }
 resetForm()
 
+// Calendars offered in the picker. A co-host manager or admin editing an
+// event in someone else's calendar won't have it in their own list, so keep
+// the event's current calendar selectable rather than blocking the save.
+const calendarOptions = computed<{ id: number; name: string }[]>(() => {
+  const own = props.calendars ?? []
+  const currentId = props.event?.calendar_id
+  if (currentId == null || own.some((c) => c.id === currentId)) return own
+  return [{ id: currentId, name: 'Current calendar' }, ...own]
+})
+
 // Events must belong to a calendar; block the form until one exists.
-const hasCalendars = computed(() => (props.calendars ?? []).length > 0)
+const hasCalendars = computed(() => calendarOptions.value.length > 0)
 
 const localError = ref('')
 
@@ -167,7 +177,7 @@ function formatDateTime(iso?: string | null): string {
 
 const calendarName = computed(
   () =>
-    (props.calendars ?? []).find((c) => c.id === props.event?.calendar_id)?.name ??
+    calendarOptions.value.find((c) => c.id === props.event?.calendar_id)?.name ??
     '—',
 )
 
@@ -566,7 +576,7 @@ function onSubmit() {
         :class="inputClass"
       >
         <option :value="null" disabled>Select a calendar…</option>
-        <option v-for="c in calendars ?? []" :key="c.id" :value="c.id">{{ c.name }}</option>
+        <option v-for="c in calendarOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
       <p v-if="hasCalendars" class="text-xs text-gray-400">
         Every event belongs to a calendar. Publishing notifies its followers.

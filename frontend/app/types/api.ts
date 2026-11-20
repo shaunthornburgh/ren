@@ -17,6 +17,12 @@ export interface UserRead {
   created_at: string
 }
 
+// Admin-only update of another user's account (PATCH /admin/users/{id}).
+export interface AdminUserUpdate {
+  role?: UserRole
+  is_active?: boolean
+}
+
 export interface UserProfileUpdate {
   display_name?: string | null
   bio?: string | null
@@ -56,6 +62,11 @@ export interface EventRead {
   organizer_id: number
   created_at: string
   updated_at: string
+}
+
+// Any event plus its organizer's display name (GET /admin/events).
+export interface AdminEventRead extends EventRead {
+  organizer_name: string
 }
 
 export interface TicketTypeRead {

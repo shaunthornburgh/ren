@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import models  # noqa: F401 — register models on Base.metadata
 from app.api.v1 import (
+    admin,
     agenda,
     auth,
     calendars,
@@ -83,6 +84,7 @@ async def health():
 
 
 # API v1 routers
+app.include_router(admin.router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(agenda.router, prefix=settings.API_V1_PREFIX)
 app.include_router(calendars.router, prefix=settings.API_V1_PREFIX)

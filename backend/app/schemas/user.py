@@ -55,3 +55,10 @@ class PublicUserProfile(BaseModel):
     bio: str | None = None
     avatar_url: str | None = None
     hosting_events: list[EventRead] = []
+
+
+class AdminUserUpdate(BaseModel):
+    """Fields an admin may change on another user's account."""
+
+    role: UserRole | None = None
+    is_active: bool | None = None

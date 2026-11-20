@@ -14,6 +14,9 @@ const nav = computed(() => {
   if (role === 'organizer' || role === 'admin') {
     links.push({ label: 'Dashboard', to: '/dashboard' })
   }
+  if (role === 'admin') {
+    links.push({ label: 'Admin', to: '/admin' })
+  }
   return links
 })
 
