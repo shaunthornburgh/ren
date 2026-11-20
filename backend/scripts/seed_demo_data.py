@@ -12,15 +12,15 @@ whenever it runs. Purchases go through ``crud.order.create`` / ``fulfill`` /
 registration answers behave exactly as they would in the app.
 
 Demo rows are identified by the calendar slugs below and by the
-``@demo.ren-events.com`` email domain. The four login accounts are kept (their
+``@demo.ren-events.com`` email domain. The login accounts are kept (their
 password and role are reset) but never deleted.
 
 Run inside the backend container:
     docker exec ren-backend python -m scripts.seed_demo_data           # seed once
     docker exec ren-backend python -m scripts.seed_demo_data --reset   # wipe + reseed
 
-Logins (password ``password123``): organizer@, buyer@, buyer2@, host@
-ren-events.com.
+Logins (password ``password123``): organizer@, buyer@, buyer2@, host@ and
+admin@ ren-events.com.
 """
 
 import argparse
@@ -87,6 +87,7 @@ LOGINS = [
     ("buyer", "buyer@ren-events.com", "Ben Carter", UserRole.CUSTOMER),
     ("host", "host@ren-events.com", "Hana Mori", UserRole.CUSTOMER),
     ("buyer2", "buyer2@ren-events.com", "Sofia Alvarez", UserRole.CUSTOMER),
+    ("admin", "admin@ren-events.com", "Ada Admin", UserRole.ADMIN),
 ]
 
 DEMO_PEOPLE = [

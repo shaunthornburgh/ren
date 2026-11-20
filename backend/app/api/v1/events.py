@@ -325,14 +325,17 @@ def update_event(
     """
     event = _get_owned_event(event_id, db, current_user)
 
-    # calendar_id can be re-pointed but never cleared (it's required).
+    # calendar_id can be re-pointed but never cleared (it's required). Only a
+    # move needs ownership of the target calendar; resending the current one
+    # (as the edit form does) must not lock out co-host managers.
     if "calendar_id" in event_in.model_fields_set:
         if event_in.calendar_id is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="calendar_id cannot be null.",
             )
-        _assert_calendar_owned(event_in.calendar_id, db, current_user)
+        if event_in.calendar_id != event.calendar_id:
+            _assert_calendar_owned(event_in.calendar_id, db, current_user)
 
     _apply_location_update(event, event_in)
 

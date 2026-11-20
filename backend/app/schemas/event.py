@@ -146,3 +146,9 @@ class OrganizerEventRead(EventRead):
     tickets_sold: int
     tickets_remaining: int
     revenue: Decimal
+
+
+class AdminEventRead(EventRead):
+    """Event plus its organizer's public display name, for the admin area."""
+
+    organizer_name: str

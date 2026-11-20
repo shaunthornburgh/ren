@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app.core.security import create_access_token
-from app.deps import get_current_user, get_db
+from app.deps import get_current_active_user, get_db
 from app.models.user import User
 from app.schemas.token import Token
 from app.schemas.user import UserCreate, UserLogin, UserRead
@@ -90,7 +90,7 @@ def login_form(
 
 @router.get("/me", response_model=UserRead)
 def read_me(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> User:
-    """Return the currently authenticated user."""
+    """Return the currently authenticated, active user."""
     return current_user

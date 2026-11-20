@@ -42,6 +42,31 @@ def get_multi(
     return db.scalars(stmt).all()
 
 
+def get_multi_for_admin(
+    db: Session,
+    *,
+    q: str | None = None,
+    status: EventStatus | None = None,
+    skip: int = 0,
+    limit: int = 50,
+) -> Sequence[Event]:
+    """List every event (any status), latest start first, for the admin area.
+
+    Eager-loads the organizer so callers can resolve display names cheaply.
+    """
+    stmt = select(Event).options(selectinload(Event.organizer))
+    if q:
+        stmt = stmt.where(Event.title.ilike(f"%{q}%"))
+    if status is not None:
+        stmt = stmt.where(Event.status == status)
+    stmt = (
+        stmt.order_by(Event.start_datetime.desc(), Event.id.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return db.scalars(stmt).all()
+
+
 def get_multi_by_organizer_with_stats(
     db: Session, *, organizer_id: int
 ) -> list[tuple[Event, EventStats]]:
