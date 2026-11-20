@@ -158,7 +158,26 @@ export interface OrganizerEventRead extends EventRead {
   ticket_types_count: number
   tickets_sold: number
   tickets_remaining: number
+  checked_in: number
   revenue: string
+}
+
+// GET /events/{id}/analytics. Money fields are decimal strings.
+export interface TicketTypeAnalytics {
+  ticket_type_id: number
+  name: string
+  price: string
+  sold: number
+  remaining: number
+  checked_in: number
+  revenue: string
+}
+
+export interface EventAnalytics {
+  ticket_types: TicketTypeAnalytics[]
+  totals: { sold: number; remaining: number; checked_in: number; revenue: string }
+  attendance_rate: number | null
+  orders: { paid: number; pending: number; cancelled: number }
 }
 
 // Payloads for creating/updating events (organizer dashboard).

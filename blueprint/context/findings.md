@@ -30,3 +30,11 @@
 **Why it matters:** The spec states at least one active admin always remains because an admin can't demote or deactivate themselves. That holds sequentially, but two simultaneous PATCHes (A deactivates B, B deactivates A) both pass `require_role` before either commits. Recovery is possible: `scripts.set_user_role` can promote another active user to admin, though it cannot reactivate an account. Not reproduced; requires near-simultaneous requests by two admins.
 **Suggested fix:** Accept as a known edge for this platform size, or document that recovery path in the script docstring. Locking is not warranted without a real requirement.
 **Resolution:**
+
+### F-04 [P3] open - Attendance bar uses an inline style binding
+
+**File:** frontend/app/components/EventAnalytics.vue:72
+**Found:** 2026-11-20 by /audit independent (scope: current; lens: quality)
+**Why it matters:** `coding-standards.md` (Styling) says "No inline styles", and this `:style="{ width: ... }"` on the decorative attendance bar is the only `style`/`:style` binding in `frontend/app`. It is standards drift, not a defect: the bar is `aria-hidden` and the text percentage carries the value.
+**Suggested fix:** Replace the two nested divs with a native `<progress :value="data.attendance_rate ?? 0" max="1" aria-hidden="true">` styled with Tailwind classes (or drop the bar, which the spec makes optional with "Any attendance bar"). No current requirement lost.
+**Resolution:**

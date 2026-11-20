@@ -27,6 +27,7 @@ const tabs = [
   { key: 'registration', label: 'Registration' },
   { key: 'guests', label: 'Guests' },
   { key: 'messages', label: 'Messages' },
+  { key: 'analytics', label: 'Analytics' },
 ] as const
 type TabKey = (typeof tabs)[number]['key']
 const tabKeys = tabs.map((t) => t.key) as readonly string[]
@@ -41,6 +42,12 @@ function selectTab(key: TabKey) {
   activeTab.value = key
   router.replace({ query: { ...route.query, tab: key } })
 }
+
+// Analytics loads only once its tab is first opened, then stays mounted.
+const analyticsOpened = ref(activeTab.value === 'analytics')
+watch(activeTab, (key) => {
+  if (key === 'analytics') analyticsOpened.value = true
+})
 
 // Keep the tab in sync with browser back/forward.
 watch(
@@ -172,6 +179,11 @@ async function updateEvent(payload: EventCreate) {
           <!-- Messages -->
           <div v-show="activeTab === 'messages'">
             <MessageComposer :event-id="eventId" />
+          </div>
+
+          <!-- Analytics -->
+          <div v-show="activeTab === 'analytics'">
+            <EventAnalytics v-if="analyticsOpened" :event-id="eventId" />
           </div>
         </div>
       </div>

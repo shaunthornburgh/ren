@@ -26,6 +26,7 @@ const totals = computed(() => {
   return {
     events: list.length,
     sold: list.reduce((a, e) => a + e.tickets_sold, 0),
+    checkedIn: list.reduce((a, e) => a + e.checked_in, 0),
     revenue: list.reduce((a, e) => a + parseFloat(e.revenue), 0),
   }
 })
@@ -55,7 +56,7 @@ const totals = computed(() => {
       </div>
 
       <!-- summary tiles -->
-      <div class="grid gap-5 mt-8 sm:grid-cols-3">
+      <div class="grid gap-5 mt-8 sm:grid-cols-2 lg:grid-cols-4">
         <div class="p-6 bg-purple-50 rounded-2xl dark:bg-gray-800">
           <div class="font-medium text-gray-500">Events</div>
           <div class="mt-1 text-3xl font-bold">{{ totals.events }}</div>
@@ -63,6 +64,10 @@ const totals = computed(() => {
         <div class="p-6 bg-purple-50 rounded-2xl dark:bg-gray-800">
           <div class="font-medium text-gray-500">Tickets sold</div>
           <div class="mt-1 text-3xl font-bold">{{ totals.sold }}</div>
+        </div>
+        <div class="p-6 bg-purple-50 rounded-2xl dark:bg-gray-800">
+          <div class="font-medium text-gray-500">Checked in</div>
+          <div class="mt-1 text-3xl font-bold">{{ totals.checkedIn }}</div>
         </div>
         <div class="p-6 bg-purple-50 rounded-2xl dark:bg-gray-800">
           <div class="font-medium text-gray-500">Total revenue</div>
@@ -109,7 +114,7 @@ const totals = computed(() => {
               </div>
               <div class="text-sm text-gray-400">{{ formatDateTime(event.start_datetime) }} · {{ event.location || 'Venue TBA' }}</div>
 
-              <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
                 <div>
                   <div class="text-xs font-medium text-gray-500">Ticket types</div>
                   <div class="font-bold">{{ event.ticket_types_count }}</div>
@@ -121,6 +126,10 @@ const totals = computed(() => {
                 <div>
                   <div class="text-xs font-medium text-gray-500">Remaining</div>
                   <div class="font-bold">{{ event.tickets_remaining }}</div>
+                </div>
+                <div>
+                  <div class="text-xs font-medium text-gray-500">Checked in</div>
+                  <div class="font-bold">{{ event.checked_in }}</div>
                 </div>
                 <div>
                   <div class="text-xs font-medium text-gray-500">Revenue</div>

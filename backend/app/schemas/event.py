@@ -145,7 +145,43 @@ class OrganizerEventRead(EventRead):
     ticket_types_count: int
     tickets_sold: int
     tickets_remaining: int
+    checked_in: int
     revenue: Decimal
+
+
+class TicketTypeAnalytics(BaseModel):
+    """One ticket type's sales figures. ``price`` is the current list price;
+    ``revenue`` is what buyers actually paid."""
+
+    ticket_type_id: int
+    name: str
+    price: Decimal
+    sold: int
+    remaining: int
+    checked_in: int
+    revenue: Decimal
+
+
+class AnalyticsTotals(BaseModel):
+    sold: int
+    remaining: int
+    checked_in: int
+    revenue: Decimal
+
+
+class OrderStatusCounts(BaseModel):
+    paid: int
+    pending: int
+    cancelled: int
+
+
+class EventAnalytics(BaseModel):
+    """Per-event sales, revenue and attendance report for event managers."""
+
+    ticket_types: list[TicketTypeAnalytics]
+    totals: AnalyticsTotals
+    attendance_rate: float | None
+    orders: OrderStatusCounts
 
 
 class AdminEventRead(EventRead):

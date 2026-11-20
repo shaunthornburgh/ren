@@ -3,20 +3,89 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TypedDict
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import distinct, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.event import Event, EventStatus
 from app.models.event_host import EventHost, HostRole, HostStatus
+from app.models.order import Order, OrderStatus
+from app.models.order_item import OrderItem
 from app.models.ticket import Ticket, TicketStatus
-from app.schemas.event import EventCreate, EventUpdate
+from app.models.ticket_type import TicketType
+from app.schemas.event import (
+    AnalyticsTotals,
+    EventAnalytics,
+    EventCreate,
+    EventUpdate,
+    OrderStatusCounts,
+    TicketTypeAnalytics,
+)
+
+_ZERO = Decimal("0.00")
 
 
 class EventStats(TypedDict):
     ticket_types_count: int
     tickets_sold: int
     tickets_remaining: int
+    checked_in: int
     revenue: Decimal
+
+
+class TicketTypeStats(TypedDict):
+    sold: int
+    checked_in: int
+    revenue: Decimal
+
+
+def _ticket_type_stats(
+    db: Session, *, ticket_type_ids: list[int]
+) -> dict[int, TicketTypeStats]:
+    """Per-ticket-type sales figures, keyed by ticket type id.
+
+    ``sold`` counts valid or used tickets, ``checked_in`` counts used ones, and
+    ``revenue`` is the price actually paid (quantity x unit price on paid
+    orders), so later price edits don't rewrite past revenue. Types with no
+    activity are present with zeros.
+    """
+    stats: dict[int, TicketTypeStats] = {
+        type_id: TicketTypeStats(sold=0, checked_in=0, revenue=_ZERO)
+        for type_id in ticket_type_ids
+    }
+    if not ticket_type_ids:
+        return stats
+
+    ticket_rows = db.execute(
+        select(
+            Ticket.ticket_type_id,
+            func.count(Ticket.id).filter(
+                Ticket.status != TicketStatus.CANCELLED
+            ),
+            func.count(Ticket.id).filter(Ticket.status == TicketStatus.USED),
+        )
+        .where(Ticket.ticket_type_id.in_(ticket_type_ids))
+        .group_by(Ticket.ticket_type_id)
+    ).all()
+    for type_id, sold, checked_in in ticket_rows:
+        stats[type_id]["sold"] = sold
+        stats[type_id]["checked_in"] = checked_in
+
+    revenue_rows = db.execute(
+        select(
+            OrderItem.ticket_type_id,
+            func.sum(OrderItem.quantity * OrderItem.unit_price),
+        )
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(
+            OrderItem.ticket_type_id.in_(ticket_type_ids),
+            Order.status == OrderStatus.PAID,
+        )
+        .group_by(OrderItem.ticket_type_id)
+    ).all()
+    for type_id, revenue in revenue_rows:
+        stats[type_id]["revenue"] = Decimal(revenue or 0)
+
+    return stats
 
 
 def get(db: Session, *, id: int) -> Event | None:
@@ -72,9 +141,9 @@ def get_multi_by_organizer_with_stats(
 ) -> list[tuple[Event, EventStats]]:
     """List an organizer's events (newest first) with aggregate sales stats.
 
-    ``tickets_sold`` / ``revenue`` count issued (non-cancelled) tickets — which
-    only exist once an order is paid. ``tickets_remaining`` is the inventory
-    still available across the event's ticket types.
+    ``tickets_sold``, ``checked_in`` and ``revenue`` follow
+    ``_ticket_type_stats``. ``tickets_remaining`` is the inventory still
+    available across the event's ticket types.
     """
     events = db.scalars(
         select(Event)
@@ -84,38 +153,81 @@ def get_multi_by_organizer_with_stats(
     ).all()
 
     type_ids = [tt.id for e in events for tt in e.ticket_types]
-    sold_by_type: dict[int, int] = {}
-    if type_ids:
-        rows = db.execute(
-            select(Ticket.ticket_type_id, func.count(Ticket.id))
-            .where(
-                Ticket.ticket_type_id.in_(type_ids),
-                Ticket.status != TicketStatus.CANCELLED,
-            )
-            .group_by(Ticket.ticket_type_id)
-        ).all()
-        sold_by_type = {type_id: count for type_id, count in rows}
+    by_type = _ticket_type_stats(db, ticket_type_ids=type_ids)
 
     results: list[tuple[Event, EventStats]] = []
     for event in events:
-        sold = sum(sold_by_type.get(tt.id, 0) for tt in event.ticket_types)
-        remaining = sum(tt.quantity_available for tt in event.ticket_types)
-        revenue = sum(
-            (sold_by_type.get(tt.id, 0) * tt.price for tt in event.ticket_types),
-            Decimal(0),
-        )
+        type_stats = [by_type[tt.id] for tt in event.ticket_types]
         results.append(
             (
                 event,
                 EventStats(
                     ticket_types_count=len(event.ticket_types),
-                    tickets_sold=sold,
-                    tickets_remaining=remaining,
-                    revenue=revenue,
+                    tickets_sold=sum(t["sold"] for t in type_stats),
+                    tickets_remaining=sum(
+                        tt.quantity_available for tt in event.ticket_types
+                    ),
+                    checked_in=sum(t["checked_in"] for t in type_stats),
+                    revenue=sum((t["revenue"] for t in type_stats), _ZERO),
                 ),
             )
         )
     return results
+
+
+def get_analytics(db: Session, *, event: Event) -> EventAnalytics:
+    """Sales, revenue, attendance and order counts for one event."""
+    ticket_types = db.scalars(
+        select(TicketType)
+        .where(TicketType.event_id == event.id)
+        .order_by(TicketType.id)
+    ).all()
+    type_ids = [tt.id for tt in ticket_types]
+    by_type = _ticket_type_stats(db, ticket_type_ids=type_ids)
+
+    rows = [
+        TicketTypeAnalytics(
+            ticket_type_id=tt.id,
+            name=tt.name,
+            price=tt.price,
+            sold=by_type[tt.id]["sold"],
+            remaining=tt.quantity_available,
+            checked_in=by_type[tt.id]["checked_in"],
+            revenue=by_type[tt.id]["revenue"],
+        )
+        for tt in ticket_types
+    ]
+    totals = AnalyticsTotals(
+        sold=sum(r.sold for r in rows),
+        remaining=sum(r.remaining for r in rows),
+        checked_in=sum(r.checked_in for r in rows),
+        revenue=sum((r.revenue for r in rows), _ZERO),
+    )
+
+    # Distinct orders per status that include any of this event's ticket types.
+    orders = {s: 0 for s in OrderStatus}
+    if type_ids:
+        order_rows = db.execute(
+            select(Order.status, func.count(distinct(Order.id)))
+            .join(OrderItem, OrderItem.order_id == Order.id)
+            .where(OrderItem.ticket_type_id.in_(type_ids))
+            .group_by(Order.status)
+        ).all()
+        for order_status, count in order_rows:
+            orders[order_status] = count
+
+    return EventAnalytics(
+        ticket_types=rows,
+        totals=totals,
+        attendance_rate=(
+            round(totals.checked_in / totals.sold, 4) if totals.sold else None
+        ),
+        orders=OrderStatusCounts(
+            paid=orders[OrderStatus.PAID],
+            pending=orders[OrderStatus.PENDING],
+            cancelled=orders[OrderStatus.CANCELLED],
+        ),
+    )
 
 
 def get_upcoming_hosted_by_user(

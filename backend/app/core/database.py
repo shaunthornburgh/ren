@@ -6,8 +6,13 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from app.core.config import settings
 
 # Engine — pool_pre_ping avoids stale connections after the DB restarts.
+# Force the psycopg2 driver (already in requirements.txt).
+db_url = settings.DATABASE_URL
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
     pool_pre_ping=True,
     future=True,
 )

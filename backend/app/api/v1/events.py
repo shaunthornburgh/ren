@@ -26,6 +26,7 @@ from app.deps import (
 from app.models.event import Event, EventStatus
 from app.models.user import User, UserRole
 from app.schemas.event import (
+    EventAnalytics,
     EventCreate,
     EventRead,
     EventUpdate,
@@ -262,6 +263,17 @@ def delete_event_image(
     return crud.event.update(
         db, db_obj=event, obj_in=EventUpdate(image_url=None)
     )
+
+
+@router.get("/{event_id}/analytics", response_model=EventAnalytics)
+def get_event_analytics(
+    event_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> EventAnalytics:
+    """Event managers only."""
+    event = _get_owned_event(event_id, db, current_user)
+    return crud.event.get_analytics(db, event=event)
 
 
 @router.get("/{event_id}/guests", response_model=list[GuestRead])
