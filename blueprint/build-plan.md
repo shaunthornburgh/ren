@@ -26,7 +26,7 @@ Do not renumber completed features; their archived specs refer to those IDs.
 - [x] 15. **QR tickets and check-in** - per-ticket codes, QR display in My Tickets, door scan check-in with stats
 - [x] 16. **Admin area** - UI for the admin role to manage users, roles, and events
 - [x] 17. **Organizer analytics** - sales, revenue, and attendance reporting on the dashboard
-- [ ] 18. **Ticket emails** - email order confirmation with QR tickets after payment
+- [x] 18. **Ticket emails** - email order confirmation with QR tickets after payment
 - [ ] 19. **Refunds and cancellations** - refund paid orders via Stripe and handle event cancellation for ticket holders
 - [ ] 20. **Forgot password** - password reset flow via email
 - [ ] 21. **Discount codes** - organizer-created promo codes that reduce ticket price at checkout

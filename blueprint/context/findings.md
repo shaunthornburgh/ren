@@ -38,3 +38,11 @@
 **Why it matters:** `coding-standards.md` (Styling) says "No inline styles", and this `:style="{ width: ... }"` on the decorative attendance bar is the only `style`/`:style` binding in `frontend/app`. It is standards drift, not a defect: the bar is `aria-hidden` and the text percentage carries the value.
 **Suggested fix:** Replace the two nested divs with a native `<progress :value="data.attendance_rate ?? 0" max="1" aria-hidden="true">` styled with Tailwind classes (or drop the bar, which the spec makes optional with "Any attendance bar"). No current requirement lost.
 **Resolution:**
+
+### F-07 [P3] open - Confirmation builder exceeds the 50-line function guideline
+
+**File:** backend/app/core/email.py:250
+**Found:** 2026-11-20 by /audit independent (scope: current; lens: quality)
+**Why it matters:** `coding-standards.md` (Code Quality) asks to keep functions under 50 lines when possible. `build_order_confirmation` runs 68 lines (250-317) and interleaves text-part lines, HTML markup, and image collection for events and tickets in one loop; every other function in `email.py` is under 50 lines. It is standards drift, not a defect: the output was verified correct.
+**Suggested fix:** Extract the per-event block (text lines, HTML fragment, and its tickets' QR images) into a small private helper such as `_render_event(event) -> tuple[list[str], str, list[tuple[str, bytes]]]`. No current requirement lost.
+**Resolution:**

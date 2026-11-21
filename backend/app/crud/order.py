@@ -4,6 +4,11 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.email import (
+    ConfirmationEvent,
+    ConfirmationTicket,
+    OrderConfirmationEmail,
+)
 from app.models.order import Order, OrderStatus
 from app.models.order_item import OrderItem
 from app.models.registration_question import (
@@ -51,6 +56,56 @@ def get(db: Session, *, id: int) -> Order | None:
         )
     )
     return db.scalars(stmt).first()
+
+
+def get_confirmation_email(
+    db: Session, *, order_id: int
+) -> OrderConfirmationEmail | None:
+    """Plain data for a paid order's confirmation email, or None if not paid.
+
+    Groups the order's non-cancelled tickets by event (soonest event first,
+    tickets by id) with everything eager-loaded up front.
+    """
+    order = db.scalars(
+        select(Order)
+        .where(Order.id == order_id)
+        .options(
+            selectinload(Order.user),
+            selectinload(Order.tickets)
+            .selectinload(Ticket.ticket_type)
+            .selectinload(TicketType.event),
+        )
+    ).first()
+    if order is None or order.status is not OrderStatus.PAID:
+        return None
+
+    by_event: dict[int, ConfirmationEvent] = {}
+    for ticket in sorted(order.tickets, key=lambda t: t.id):
+        if ticket.status is TicketStatus.CANCELLED:
+            continue
+        event = ticket.ticket_type.event
+        entry = by_event.get(event.id)
+        if entry is None:
+            entry = by_event[event.id] = ConfirmationEvent(
+                event_id=event.id,
+                title=event.title,
+                start=event.start_datetime,
+                end=event.end_datetime,
+                location=event.location,
+                is_online=event.is_online,
+                tickets=[],
+            )
+        entry.tickets.append(
+            ConfirmationTicket(type_name=ticket.ticket_type.name, code=ticket.code)
+        )
+
+    return OrderConfirmationEmail(
+        order_id=order.id,
+        to=order.user.email,
+        buyer_name=order.user.full_name,
+        total_amount=order.total_amount,
+        events=sorted(by_event.values(), key=lambda e: e.start),
+    )
 
 
 def get_multi_by_user(
@@ -234,12 +289,15 @@ def _attach_registration_answers(
 
 def fulfill(
     db: Session, *, order_id: int, payment_intent_id: str | None = None
-) -> Order | None:
+) -> tuple[Order | None, bool]:
     """Mark a pending order PAID and issue its tickets.
 
     Idempotent and safe against concurrent webhook deliveries: the order row is
     locked for the transaction, and an order that is already PAID (or was
     CANCELLED) is returned unchanged without issuing duplicate tickets.
+
+    Returns ``(order, newly_paid)``; ``newly_paid`` is True only for the one
+    call that moved the order from pending to paid.
     """
     try:
         stmt = (
@@ -250,10 +308,10 @@ def fulfill(
         )
         order = db.scalars(stmt).first()
         if order is None:
-            return None
+            return None, False
         if order.status is not OrderStatus.PENDING:
             # Already fulfilled or cancelled — nothing to do (idempotent).
-            return order
+            return order, False
 
         for item in order.items:
             order.tickets.extend(
@@ -272,7 +330,7 @@ def fulfill(
         db.add(order)
         db.commit()
         db.refresh(order)
-        return order
+        return order, True
     except Exception:
         db.rollback()
         raise

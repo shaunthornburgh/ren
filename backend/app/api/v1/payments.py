@@ -2,10 +2,18 @@ import logging
 from typing import Annotated
 
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app import crud
+from app.core import email
 from app.core import stripe as stripe_service
 from app.deps import get_current_active_user, get_db
 from app.models.order import OrderStatus
@@ -66,12 +74,14 @@ def create_checkout_session(
 async def stripe_webhook(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
 ) -> dict[str, bool]:
     """Receive and process Stripe webhook events.
 
     The signature is verified against the raw request body before anything is
     trusted. Handlers are idempotent so Stripe's at-least-once delivery (and
-    retries) can't double-issue tickets or double-release inventory.
+    retries) can't double-issue tickets, double-release inventory, or resend
+    the buyer's ticket email.
     """
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
@@ -104,11 +114,19 @@ async def stripe_webhook(
         # asynchronous ones wait for async_payment_succeeded. Guard on
         # payment_status so an unpaid "completed" event doesn't fulfil early.
         if getattr(obj, "payment_status", None) == "paid" and order_id is not None:
-            crud.order.fulfill(
+            _, newly_paid = crud.order.fulfill(
                 db,
                 order_id=order_id,
                 payment_intent_id=getattr(obj, "payment_intent", None),
             )
+            if newly_paid:
+                confirmation = crud.order.get_confirmation_email(
+                    db, order_id=order_id
+                )
+                if confirmation is not None:
+                    background_tasks.add_task(
+                        email.send_order_confirmation, confirmation
+                    )
     elif event_type in (
         "checkout.session.expired",
         "checkout.session.async_payment_failed",

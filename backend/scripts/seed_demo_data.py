@@ -654,7 +654,8 @@ def place_order(
     )
     if state == "paid":
         # Issues tickets with codes exactly as the Stripe webhook does.
-        order = crud.order.fulfill(db, order_id=order.id)
+        # No confirmation email: only the webhook sends one.
+        order, _ = crud.order.fulfill(db, order_id=order.id)
     elif state == "cancelled":
         order = crud.order.release(db, order_id=order.id)
     _backdate(order, event)
