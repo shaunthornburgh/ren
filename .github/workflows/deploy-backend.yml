@@ -1,4 +1,4 @@
-name: Deploy Backend to ECS
+name: Deploy Backend to ECS Express
 
 on:
   push:
@@ -10,10 +10,8 @@ on:
 env:
   AWS_REGION: us-west-2
   ECR_REPOSITORY: ren-backend
-  ECS_CLUSTER: default
   ECS_SERVICE: ren-backend
-  ECS_TASK_DEFINITION: ren-backend
-  CONTAINER_NAME: ren-backend
+  CONTAINER_NAME: Main
 
 jobs:
   deploy:
@@ -47,28 +45,12 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Download task definition
-        run: |
-          aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} \
-            --query taskDefinition > task-definition.json
-
-      - name: Remove enableFaultInjection from task definition
-        run: |
-          jq 'del(.enableFaultInjection)' task-definition.json > task-definition-fixed.json
-          mv task-definition-fixed.json task-definition.json
-
-      - name: Fill in the new image ID in the Amazon ECS task definition
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
+      - name: Deploy to ECS Express Mode
+        uses: aws-actions/amazon-ecs-deploy-express-service@v1
         with:
-          task-definition: task-definition.json
-          container-name: ${{ env.CONTAINER_NAME }}
+          service-name: ${{ env.ECS_SERVICE }}
           image: ${{ steps.build-image.outputs.image }}
-
-      - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+          execution-role-arn: arn:aws:iam::253220780210:role/ecsTaskExecutionRole
+          infrastructure-role-arn: arn:aws:iam::253220780210:role/ecsInfrastructureRoleForExpressServices
+          container-port: 8000
+          cluster: default
