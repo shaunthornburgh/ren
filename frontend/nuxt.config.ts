@@ -14,7 +14,7 @@ export default defineNuxtConfig({
     public: {
       // Overridable via NUXT_PUBLIC_API_BASE. Defaults to the backend exposed
       // by docker-compose on the host (calls are made from the browser).
-      apiBase: 'http://localhost:8000/api/v1',
+      apiBase: 'http://18.236.131.211:8000/api/v1',
 
       // Browser key for Places Autocomplete (organizer form) and the Maps
       // Embed (public event page). Set NUXT_PUBLIC_GOOGLE_MAPS_API_KEY; see
